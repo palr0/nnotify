@@ -91,47 +91,35 @@ async function saveMessageId(id) {
 }
 
 async function updateBossMessage(channel) {
-    let lastBossKey = "";
-
     while (true) {
         const now = new Date();
-        const { boss, hour, minute } = getNextBoss();
+        let { boss, hour, minute } = getNextBoss();
 
-        const bossKey = `${boss}-${hour}:${minute}`;
-        const remainingMinutes = minute - now.getMinutes() - 1 + (hour - now.getHours()) * 60;
-        const remainingSeconds = 60 - now.getSeconds();
+        let remainingMinutes = minute - now.getMinutes() - 1;
+        let remainingSeconds = 60 - now.getSeconds();
 
         if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             continue;
         }
 
-        // 이전 보스와 다를 때만 embed 갱신
-        if (bossKey !== lastBossKey || !bossMessage) {
-            lastBossKey = bossKey;
+        const embed = new EmbedBuilder()
+            .setColor(0x0099ff)
+            .setTitle('보스 알림 받기')
+            .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+            .addFields({ name: "📢 다음 보스", value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**` })
+            .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
-            const embed = new EmbedBuilder()
-                .setColor(0x0099ff)
-                .setTitle('보스 알림 받기')
-                .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-                .addFields({
-                    name: "📢 다음 보스",
-                    value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
-                })
-                .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
-
-            if (bossMessage) {
-                await bossMessage.edit({ embeds: [embed] });
-            } else {
-                bossMessage = await channel.send({ embeds: [embed] });
-                await bossMessage.react('🔔');
-            }
+        if (bossMessage) {
+            await bossMessage.edit({ embeds: [embed] });
+        } else {
+            bossMessage = await channel.send({ embeds: [embed] });
+            await bossMessage.react('🔔');
         }
 
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
 }
-
 
 client.on('messageReactionAdd', async (reaction, user) => {
     if (reaction.message.id !== bossMessage?.id) return;
@@ -272,4 +260,3 @@ try {
 
 
 client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
-
