@@ -5,6 +5,7 @@ const server = require('./server.js'); // express 서버 실행
 const fs = require('fs');
 const path = './bossMessageId.txt';
 const { Message } = require('discord.js'); // 메시지 타입 체크용
+const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
 const TOKEN = config.TOKEN;
 
