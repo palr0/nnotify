@@ -101,9 +101,19 @@ client.once('ready', async () => {
     const bossAlertChannel = guild.channels.cache.find(channel => channel.name === "보스알림");
     if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
 
+    // 메시지 100개 삭제
+    try {
+        const fetchedMessages = await bossAlertChannel.messages.fetch({ limit: 100 });
+        await bossAlertChannel.bulkDelete(fetchedMessages, true);
+        console.log("🧹 이전 메시지 100개 삭제 완료");
+    } catch (error) {
+        console.error("❌ 메시지 삭제 중 오류 발생:", error);
+    }
+
     updateBossMessage(bossAlertChannel);
     scheduleBossAlerts(bossAlertChannel);
 });
+
 
 function scheduleBossAlerts(channel) {
     for (let hour = 0; hour < 24; hour++) {
