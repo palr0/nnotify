@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
-const config = require('./config.json');
+const config = require('./config.env');
+const server = require('./server.js'); // express 서버 실행
 
 const TOKEN = config.TOKEN;
 
@@ -128,3 +129,4 @@ function scheduleBossAlerts(channel) {
 }
 
 client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
+
