@@ -133,8 +133,26 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (reaction.emoji.name !== '🔔') return;
     if (user.bot) return;
 
-    alertUsers.add(user.id); // 이모지 누른 유저 저장
-    console.log(`✅ ${user.tag} 알림 등록됨`);
+    alertUsers.add(user.id);
+
+    try {
+        const guild = reaction.message.guild;
+        const member = await guild.members.fetch(user.id);
+        let role = guild.roles.cache.find(r => r.name === '보스알림');
+        if (!role) {
+            // 역할이 없으면 생성
+            role = await guild.roles.create({
+                name: '보스알림',
+                mentionable: true,
+                reason: '보스 알림을 위한 역할 자동 생성'
+            });
+        }
+
+        await member.roles.add(role);
+        console.log(`✅ ${user.tag} 알림 등록됨 및 역할 부여됨`);
+    } catch (err) {
+        console.error(`❌ 역할 부여 실패: ${err.message}`);
+    }
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {
@@ -143,8 +161,20 @@ client.on('messageReactionRemove', async (reaction, user) => {
     if (user.bot) return;
 
     alertUsers.delete(user.id);
-    console.log(`🔕 ${user.tag} 알림 해제됨`);
+
+    try {
+        const guild = reaction.message.guild;
+        const member = await guild.members.fetch(user.id);
+        const role = guild.roles.cache.find(r => r.name === '보스알림');
+        if (role) {
+            await member.roles.remove(role);
+            console.log(`🔕 ${user.tag} 알림 해제됨 및 역할 제거됨`);
+        }
+    } catch (err) {
+        console.error(`❌ 역할 제거 실패: ${err.message}`);
+    }
 });
+
 
 
 client.once('ready', async () => {
@@ -201,20 +231,32 @@ function scheduleBossAlerts(channel) {
             scheduleTime.minute = minute - 1;
 
             schedule.scheduleJob(scheduleTime, async () => {
-    const embed = new EmbedBuilder()
-        .setColor(0xff0000)
-        .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
-        .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!`)
-        .setFooter({ text: '준비하세요!' });
+    const role = channel.guild.roles.cache.find(r => r.name === '보스알림');
+if (!role) {
+    console.warn("⚠️ '보스알림' 역할이 존재하지 않아 알림을 보낼 수 없습니다.");
+    return;
+}
 
-    for (const userId of alertUsers) {
-        try {
-            const user = await client.users.fetch(userId);
-            await user.send({ embeds: [embed] });
-        } catch (err) {
-            console.error(`❌ ${userId}에게 DM 전송 실패:`, err.message);
-        }
-    }
+const embed = new EmbedBuilder()
+    .setColor(0xff0000)
+    .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
+    .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!\n\n⚠️ 이 메시지는 60초 후 삭제됩니다.`)
+    .setFooter({ text: '준비하세요!' });
+
+try {
+    const msg = await channel.send({
+        content: `${role}`, // 역할 멘션
+        embeds: [embed]
+    });
+
+    // 60초 후 삭제
+    setTimeout(() => {
+        msg.delete().catch(err => console.error("❌ 메시지 삭제 실패:", err.message));
+    }, 60 * 1000);
+} catch (err) {
+    console.error("❌ 보스 알림 메시지 전송 실패:", err.message);
+}
+
 
     // 옵션: 채널에도 안내 메시지 보낼 수 있음
     //channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
