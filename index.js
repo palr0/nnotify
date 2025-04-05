@@ -100,40 +100,42 @@ async function saveMessageId(guildId, messageId) {
 
 
 
-async function updateBossMessage(channel) {
-    while (true) {
+async function updateBossMessage(channel) { 
+    setInterval(async () => {
         const now = new Date();
-        let { boss, hour, minute } = getNextBoss();
+        const { boss, hour, minute } = getNextBoss();
 
-        let remainingMinutes = minute - now.getMinutes() - 1;
+        let remainingMinutes = minute - now.getMinutes();
         let remainingSeconds = 60 - now.getSeconds();
 
-        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            continue;
+        if (remainingSeconds === 60) {
+            remainingMinutes++;
+            remainingSeconds = 0;
         }
+
+        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) return;
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
             .setTitle('보스 알림 받기')
             .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-            .addFields({ name: "📢 다음 보스", value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**` })
+            .addFields({
+                name: "📢 다음 보스",
+                value: **${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**
+            })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
         let bossMessage = bossMessages.get(channel.guild.id);
 
         if (bossMessage) {
-            await bossMessage.edit({ embeds: [embed] });
+            await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         } else {
             bossMessage = await channel.send({ embeds: [embed] });
             await bossMessage.react('🔔');
             bossMessages.set(channel.guild.id, bossMessage);
         }
-
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-}
+    }, 5000); // 5초마다 업데이트
+} 
 
 client.on('messageReactionAdd', async (reaction, user) => {
     const guildId = reaction.message.guild.id;
