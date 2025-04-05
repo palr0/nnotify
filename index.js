@@ -3,10 +3,13 @@ const schedule = require('node-schedule');
 const config = require('./config.env');
 const server = require('./server.js');
 const axios = require('axios');
+require('dotenv').config({ path: './config.env' });
+const TOKEN = process.env.TOKEN;
 const bossMessages = new Map(); // key: guild.id, value: message
 //const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
 const TOKEN = config.TOKEN;
+const alertUsers = new Set();
 
 const client = new Client({
     intents: [
@@ -82,25 +85,20 @@ async function saveMessageId(guildId, messageId) {
         updatedRecord[guildId] = messageId;
 
         await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, 
-                        updatedRecord, 
+                        { record: updatedRecord }, 
                         {
                             headers: {
                                 'Content-Type': 'application/json',
                                 'X-Master-Key': config.JSONBIN_API_KEY
                             }
-                        }
-                       );
-        headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': config.JSONBIN_API_KEY
-            }
-        });
+                        });
 
         console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error("❌ 메시지 ID 저장 실패:", err.message);
     }
 }
+
 
 
 async function updateBossMessage(channel) {
