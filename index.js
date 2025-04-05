@@ -106,27 +106,32 @@ client.once('ready', async () => {
 });
 
 function scheduleBossAlerts(channel) {
-    bossSchedule.forEach(({ hourType, minute, boss }) => {
-        schedule.scheduleJob({ minute: minute - 1 }, async () => {
-            const now = new Date();
-            const hour = now.getHours();
-            const guild = channel.guild;
-            const bossAlertRole = await getBossAlertRole(guild);
-
+    for (let hour = 0; hour < 24; hour++) {
+        bossSchedule.forEach(({ hourType, minute, boss }) => {
             if (hourType === '홀수' && hour % 2 === 0) return;
             if (hourType === '짝수' && hour % 2 !== 0) return;
 
-            const embed = new EmbedBuilder()
-                .setColor(0xff0000)
-                .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
-                .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!`)
-                .setFooter({ text: '준비하세요!' });
+            const scheduleTime = new schedule.RecurrenceRule();
+            scheduleTime.hour = hour;
+            scheduleTime.minute = minute - 1;
 
-            const mentionRole = bossAlertRole ? `<@&${bossAlertRole.id}>` : '';
-            channel.send({ content: `${mentionRole} 🚨 **${boss}** 보스가 곧 리스폰됩니다!`, embeds: [embed] });
+            schedule.scheduleJob(scheduleTime, async () => {
+                const guild = channel.guild;
+                const bossAlertRole = await getBossAlertRole(guild);
+
+                const embed = new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
+                    .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!`)
+                    .setFooter({ text: '준비하세요!' });
+
+                const mentionRole = bossAlertRole ? `<@&${bossAlertRole.id}>` : '';
+                channel.send({ content: `${mentionRole} 🚨 **${boss}** 보스가 곧 리스폰됩니다!`, embeds: [embed] });
+            });
         });
-    });
+    }
 }
+
 
 client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
 
