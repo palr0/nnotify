@@ -217,7 +217,7 @@ function scheduleBossAlerts(channel) {
     }
 
     // 옵션: 채널에도 안내 메시지 보낼 수 있음
-    channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
+    //channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
 });
         });
     }
