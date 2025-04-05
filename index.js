@@ -7,8 +7,9 @@ require('dotenv').config({ path: './config.env' });
 const TOKEN = process.env.TOKEN;
 const bossMessages = new Map(); // key: guild.id, value: message
 //const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
-
 const alertUsers = new Set();
+
+
 
 const client = new Client({
     intents: [
@@ -105,7 +106,10 @@ async function saveMessageId(guildId, messageId) {
 
 
 
-async function updateBossMessage(channel) { 
+async function updateBossMessage(channel, initialMessage) { 
+    let guildId = channel.guild?.id || channel.guildId;
+    bossMessages.set(guildId, initialMessage); // 메시지 저장
+
     setInterval(async () => {
         const now = new Date();
         const { boss, hour, minute } = getNextBoss();
@@ -130,17 +134,13 @@ async function updateBossMessage(channel) {
             })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
-        let bossMessage = bossMessages.get(channel.guild.id);
+        const bossMessage = bossMessages.get(guildId);
 
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
-        } else {
-            bossMessage = await channel.send({ embeds: [embed] });
-            await bossMessage.react('🔔');
-            bossMessages.set(channel.guild.id, bossMessage);
         }
     }, 5000); // 5초마다 업데이트
-} 
+}
 
 client.on('messageReactionAdd', async (reaction, user) => {
     const guildId = reaction.message.guild.id;
@@ -239,7 +239,7 @@ client.once('ready', async () => {
             bossMessages.set(guild.id, bossMessage);
         }
 
-        updateBossMessage(bossAlertChannel);
+        updateBossMessage(bossAlertChannel, bossMessage); // 호출 시 메시지도 전달
         scheduleBossAlerts(bossAlertChannel);
     });
 });
@@ -252,8 +252,10 @@ function scheduleBossAlerts(channel) {
             if (hourType === '짝수' && hour % 2 !== 0) return;
 
             const scheduleTime = new schedule.RecurrenceRule();
+            scheduleTime.tz = 'Asia/Seoul'; // 한국 시간대 설정
             scheduleTime.hour = hour;
             scheduleTime.minute = minute - 1;
+
 
             schedule.scheduleJob(scheduleTime, async () => {
     const role = channel.guild.roles.cache.find(r => r.name === '보스알림');
