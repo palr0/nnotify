@@ -36,23 +36,24 @@ const bossSchedule = [
 function getNextBoss() {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
     const candidates = [];
 
     for (let offset = 0; offset <= 2; offset++) {
         const checkHour = now.getHours() + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            if (hourType === '홀수' && checkHour % 2 === 0) return;
-            if (hourType === '짝수' && checkHour % 2 !== 0) return;
-
             const totalMinutes = checkHour * 60 + minute;
-            if (totalMinutes > currentTotalMinutes) {
-                candidates.push({ boss, hour: checkHour, minute, totalMinutes });
-            }
+            if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
+
+            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour; // 알림 기준 시간
+            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+
+            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
         });
     }
 
-    // 가장 가까운 시간을 가진 보스 선택
     if (candidates.length > 0) {
         candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
         const { boss, hour, minute } = candidates[0];
