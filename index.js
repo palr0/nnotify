@@ -1,10 +1,10 @@
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
-import schedule from 'node-schedule';
-import config from './config.env' assert { type: 'json' }; // config.env가 JSON이면 이렇게
-import './server.js'; // 서버 실행
-import fs from 'fs';
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const schedule = require('node-schedule');
+const config = require('./config.env');
+const server = require('./server.js');
+const fs = require('fs');
 const { Message } = require('discord.js'); // 메시지 타입 체크용
-const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
+//const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
 const TOKEN = config.TOKEN;
 
