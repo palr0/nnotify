@@ -8,7 +8,6 @@ const TOKEN = process.env.TOKEN;
 const bossMessages = new Map(); // key: guild.id, value: message
 //const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
-const TOKEN = config.TOKEN;
 const alertUsers = new Set();
 
 const client = new Client({
