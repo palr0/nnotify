@@ -4,6 +4,7 @@ const config = require('./config.env');
 const server = require('./server.js'); // express 서버 실행
 const fs = require('fs');
 const path = './bossMessageId.txt';
+const { Message } = require('discord.js'); // 메시지 타입 체크용
 
 const TOKEN = config.TOKEN;
 
@@ -123,18 +124,23 @@ client.once('ready', async () => {
     const bossAlertChannel = guild.channels.cache.find(channel => channel.name === "보스알림");
     if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
 
-    // 메시지 불러오기
     try {
         if (fs.existsSync(path)) {
             const savedMessageId = fs.readFileSync(path, 'utf8').trim();
-            bossMessage = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
-            console.log(`✅ 이전 메시지 재사용: ${savedMessageId}`);
+            const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
+
+            if (fetched && fetched.edit) {
+                bossMessage = fetched;
+                console.log(`✅ 이전 메시지 불러오기 성공: ${fetched.id}`);
+            } else {
+                console.warn("⚠️ 메시지 불러왔지만 편집 불가능. 새로 만듭니다.");
+            }
         }
     } catch (err) {
-        console.error("⚠️ 이전 메시지 불러오기 실패:", err.message);
+        console.error("⚠️ 메시지 불러오기 실패:", err.message);
     }
 
-    if (!bossMessage) {
+    if (!bossMessage || typeof bossMessage.edit !== 'function') {
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
             .setTitle('보스 알림 받기')
@@ -151,7 +157,6 @@ client.once('ready', async () => {
     updateBossMessage(bossAlertChannel);
     scheduleBossAlerts(bossAlertChannel);
 });
-
 
 function scheduleBossAlerts(channel) {
     for (let hour = 0; hour < 24; hour++) {
