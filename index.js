@@ -36,36 +36,51 @@ const bossSchedule = [
 
 function getNextBoss() {
     const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes(); // 현재 시간(분)
+    const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
 
-    for (let i = 0; i < bossSchedule.length; i++) {
-        let { hourType, minute, boss } = bossSchedule[i];
-        const bossHour = now.getHours();
-        const bossTime = bossHour * 60 + minute;
+    // 오늘 남은 시간 안의 보스 후보들 중에서 다음 보스를 찾음
+    const todayCandidates = bossSchedule.map(({ hourType, minute, boss }) => {
+        let hours = now.getHours();
+        let candidateTimes = [];
 
-        if (hourType === '홀수' && bossHour % 2 === 0) continue;
-        if (hourType === '짝수' && bossHour % 2 !== 0) continue;
+        // 현재 시간 포함해서 0~23시까지의 시간 중, 조건 만족하는 다음 시간을 찾음
+        for (let h = hours; h < 24; h++) {
+            if (hourType === '홀수' && h % 2 === 0) continue;
+            if (hourType === '짝수' && h % 2 !== 0) continue;
 
-        if (bossTime > currentTime) {
-            currentBossIndex = i;
-            return { boss, hour: bossHour, minute };
+            const totalMinutes = h * 60 + minute;
+            if (totalMinutes > currentTimeInMinutes) {
+                candidateTimes.push({ boss, hour: h, minute });
+                break; // 가장 빠른 것 하나만
+            }
+        }
+
+        return candidateTimes[0]; // undefined일 수도 있음
+    }).filter(Boolean);
+
+    // 가장 이른 시간의 보스를 찾음
+    const nextBoss = todayCandidates.sort((a, b) => {
+        const aTime = a.hour * 60 + a.minute;
+        const bTime = b.hour * 60 + b.minute;
+        return aTime - bTime;
+    })[0];
+
+    // 못 찾았으면 다음 날 0시부터 다시 검색
+    if (!nextBoss) {
+        for (let h = 0; h < 24; h++) {
+            for (let i = 0; i < bossSchedule.length; i++) {
+                const { hourType, minute, boss } = bossSchedule[i];
+                if (hourType === '홀수' && h % 2 === 0) continue;
+                if (hourType === '짝수' && h % 2 !== 0) continue;
+
+                return { boss, hour: h, minute };
+            }
         }
     }
 
-    // 다음 시간대의 첫 보스 반환
-    const nextHour = now.getHours() + 1;
-    for (let i = 0; i < bossSchedule.length; i++) {
-        let { hourType, minute, boss } = bossSchedule[i];
-        if (hourType === '홀수' && nextHour % 2 === 0) continue;
-        if (hourType === '짝수' && nextHour % 2 !== 0) continue;
-
-        currentBossIndex = i;
-        return { boss, hour: nextHour, minute };
-    }
-
-    // 아무 조건도 맞지 않을 경우 fallback
-    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
+    return nextBoss;
 }
+
 
 async function getSavedMessageId() {
     try {
