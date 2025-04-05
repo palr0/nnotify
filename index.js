@@ -36,19 +36,14 @@ function getNextBoss() {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-    // 현재 시점 이후에 나올 보스 중 가장 가까운 걸 찾음
-    for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = now.getHours() + offset;
-
+    for (let h = 0; h < 24; h++) {
+        const checkHour = (now.getHours() + h) % 24;
         for (let i = 0; i < bossSchedule.length; i++) {
             const { hourType, minute, boss } = bossSchedule[i];
-
-            // 홀수/짝수 조건 검사
             if (hourType === '홀수' && checkHour % 2 === 0) continue;
             if (hourType === '짝수' && checkHour % 2 !== 0) continue;
 
             const bossTotalMinutes = checkHour * 60 + minute;
-
             if (bossTotalMinutes > currentTotalMinutes) {
                 return { boss, hour: checkHour, minute };
             }
@@ -57,6 +52,7 @@ function getNextBoss() {
 
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
+
 
 async function getSavedMessageId(guildId) {
     try {
