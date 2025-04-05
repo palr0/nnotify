@@ -6,6 +6,7 @@ const fs = require('fs');
 const { Message } = require('discord.js'); // 메시지 타입 체크용
 const path = './bossMessageId.txt';
 const axios = require('axios');
+const bossMessages = new Map(); // key: guild.id, value: message
 //const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
 const TOKEN = config.TOKEN;
@@ -21,7 +22,6 @@ const client = new Client({
     ]
 });
 
-let bossMessage;
 let currentBossIndex = 0;
 
 const bossSchedule = [
@@ -122,7 +122,9 @@ async function updateBossMessage(channel) {
 }
 
 client.on('messageReactionAdd', async (reaction, user) => {
-    if (reaction.message.id !== bossMessage?.id) return;
+    const guildId = reaction.message.guild.id;
+    const targetMessage = bossMessages.get(guildId);
+    if (!targetMessage || reaction.message.id !== targetMessage.id) return;
     if (reaction.emoji.name !== '🔔') return;
     if (user.bot) return;
 
@@ -149,7 +151,9 @@ client.on('messageReactionAdd', async (reaction, user) => {
 });
 
 client.on('messageReactionRemove', async (reaction, user) => {
-    if (reaction.message.id !== bossMessage?.id) return;
+    const guildId = reaction.message.guild.id;
+    const targetMessage = bossMessages.get(guildId);
+    if (!targetMessage || reaction.message.id !== targetMessage.id) return;
     if (reaction.emoji.name !== '🔔') return;
     if (user.bot) return;
 
@@ -172,14 +176,14 @@ client.on('messageReactionRemove', async (reaction, user) => {
 
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
-    const guild = client.guilds.cache.first();
     if (!guild) return console.error("❌ 서버를 찾을 수 없습니다.");
-
-    const bossAlertChannel = guild.channels.cache.find(channel => channel.name === "보스알림");
+    client.guilds.cache.forEach(async (guild) => {
+        const bossAlertChannel = guild.channels.cache.find(c => c.name === "보스알림");
+    });
     if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
 
         try {
-        const savedMessageId = await getSavedMessageId();
+        const savedMessageId = await getSavedMessageId(guild.id);
         if (savedMessageId) {
             const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
@@ -205,11 +209,11 @@ client.once('ready', async () => {
         bossMessage = await bossAlertChannel.send({ embeds: [embed] });
         await bossMessage.react('🔔');
 
-        await saveMessageId(bossMessage.id); // ✅ 여기에 저장
+        await saveMessageId(guild.id, bossMessage.id); // 서버 ID 기준으로 저장
     }
 
 
-    updateBossMessage(bossAlertChannel);
+    updateBossMessage(bossAlertChannel, guild.id); // 서버별로 업데이트
     scheduleBossAlerts(bossAlertChannel);
 });
 
