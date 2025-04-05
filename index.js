@@ -5,6 +5,7 @@ const server = require('./server.js');
 const fs = require('fs');
 const { Message } = require('discord.js'); // 메시지 타입 체크용
 const path = './bossMessageId.txt';
+const axios = require('axios');
 //const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
 const TOKEN = config.TOKEN;
@@ -66,6 +67,35 @@ function getNextBoss() {
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
 
+async function getSavedMessageId() {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
+            headers: {
+                'X-Master-Key': config.JSONBIN_API_KEY
+            }
+        });
+        return response.data.record.messageId;
+    } catch (err) {
+        console.error("❌ 메시지 ID 불러오기 실패:", err.message);
+        return null;
+    }
+}
+
+async function saveMessageId(id) {
+    try {
+        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, {
+            messageId: id
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': config.JSONBIN_API_KEY
+            }
+        });
+        console.log(`✅ 메시지 ID 저장됨: ${id}`);
+    } catch (err) {
+        console.error("❌ 메시지 ID 저장 실패:", err.message);
+    }
+}
 
 async function updateBossMessage(channel) {
     while (true) {
@@ -125,9 +155,9 @@ client.once('ready', async () => {
     const bossAlertChannel = guild.channels.cache.find(channel => channel.name === "보스알림");
     if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
 
-    try {
-        if (fs.existsSync(path)) {
-            const savedMessageId = fs.readFileSync(path, 'utf8').trim();
+        try {
+        const savedMessageId = await getSavedMessageId();
+        if (savedMessageId) {
             const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
             if (fetched && fetched.edit) {
@@ -151,9 +181,10 @@ client.once('ready', async () => {
 
         bossMessage = await bossAlertChannel.send({ embeds: [embed] });
         await bossMessage.react('🔔');
-        fs.writeFileSync(path, bossMessage.id);
-        console.log(`🆕 새 메시지 생성 및 저장: ${bossMessage.id}`);
+
+        await saveMessageId(bossMessage.id); // ✅ 여기에 저장
     }
+
 
     updateBossMessage(bossAlertChannel);
     scheduleBossAlerts(bossAlertChannel);
