@@ -2,6 +2,8 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
 const server = require('./server.js'); // express 서버 실행
+const fs = require('fs');
+const path = './bossMessageId.txt'; // 메시지 ID 저장용 파일
 
 const TOKEN = config.TOKEN;
 
@@ -121,13 +123,32 @@ client.once('ready', async () => {
     const bossAlertChannel = guild.channels.cache.find(channel => channel.name === "보스알림");
     if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
 
-    // 메시지 100개 삭제
+    // 이전 메시지 ID로부터 메시지 가져오기 시도
     try {
-        const fetchedMessages = await bossAlertChannel.messages.fetch({ limit: 100 });
-        await bossAlertChannel.bulkDelete(fetchedMessages, true);
-        console.log("🧹 이전 메시지 100개 삭제 완료");
-    } catch (error) {
-        console.error("❌ 메시지 삭제 중 오류 발생:", error);
+        if (fs.existsSync(path)) {
+            const savedMessageId = fs.readFileSync(path, 'utf8');
+            bossMessage = await bossAlertChannel.messages.fetch(savedMessageId);
+            console.log(`✅ 이전 메시지 재사용: ${savedMessageId}`);
+        }
+    } catch (err) {
+        console.error("⚠️ 이전 메시지 불러오기 실패:", err.message);
+    }
+
+    // 메시지가 없으면 새로 만들기
+    if (!bossMessage) {
+        const embed = new EmbedBuilder()
+            .setColor(0x0099ff)
+            .setTitle('보스 알림 받기')
+            .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+            .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
+            .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
+
+        bossMessage = await bossAlertChannel.send({ embeds: [embed] });
+        await bossMessage.react('🔔');
+
+        // 메시지 ID 저장
+        fs.writeFileSync(path, bossMessage.id);
+        console.log(`🆕 새 메시지 생성 및 저장: ${bossMessage.id}`);
     }
 
     updateBossMessage(bossAlertChannel);
