@@ -5,6 +5,7 @@ const server = require('./server.js'); // express 서버 실행
 
 const TOKEN = config.TOKEN;
 
+const alertUsers = new Set(); // 이모지를 누른 유저 ID 저장
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -93,6 +94,25 @@ async function updateBossMessage(channel) {
     }
 }
 
+client.on('messageReactionAdd', async (reaction, user) => {
+    if (reaction.message.id !== bossMessage?.id) return;
+    if (reaction.emoji.name !== '🔔') return;
+    if (user.bot) return;
+
+    alertUsers.add(user.id); // 이모지 누른 유저 저장
+    console.log(`✅ ${user.tag} 알림 등록됨`);
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+    if (reaction.message.id !== bossMessage?.id) return;
+    if (reaction.emoji.name !== '🔔') return;
+    if (user.bot) return;
+
+    alertUsers.delete(user.id);
+    console.log(`🔕 ${user.tag} 알림 해제됨`);
+});
+
+
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
     const guild = client.guilds.cache.first();
@@ -126,18 +146,24 @@ function scheduleBossAlerts(channel) {
             scheduleTime.minute = minute - 1;
 
             schedule.scheduleJob(scheduleTime, async () => {
-                const guild = channel.guild;
-                const bossAlertRole = await getBossAlertRole(guild);
+    const embed = new EmbedBuilder()
+        .setColor(0xff0000)
+        .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
+        .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!`)
+        .setFooter({ text: '준비하세요!' });
 
-                const embed = new EmbedBuilder()
-                    .setColor(0xff0000)
-                    .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
-                    .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!`)
-                    .setFooter({ text: '준비하세요!' });
+    for (const userId of alertUsers) {
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send({ embeds: [embed] });
+        } catch (err) {
+            console.error(`❌ ${userId}에게 DM 전송 실패:`, err.message);
+        }
+    }
 
-                const mentionRole = bossAlertRole ? `<@&${bossAlertRole.id}>` : '';
-                channel.send({ content: `${mentionRole} 🚨 **${boss}** 보스가 곧 리스폰됩니다!`, embeds: [embed] });
-            });
+    // 옵션: 채널에도 안내 메시지 보낼 수 있음
+    channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
+});
         });
     }
 }
