@@ -35,23 +35,32 @@ const bossSchedule = [
 function getNextBoss() {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const candidates = [];
 
-    for (let h = 0; h < 24; h++) {
-        const checkHour = (now.getHours() + h) % 24;
-        for (let i = 0; i < bossSchedule.length; i++) {
-            const { hourType, minute, boss } = bossSchedule[i];
-            if (hourType === '홀수' && checkHour % 2 === 0) continue;
-            if (hourType === '짝수' && checkHour % 2 !== 0) continue;
+    for (let offset = 0; offset <= 2; offset++) {
+        const checkHour = now.getHours() + offset;
 
-            const bossTotalMinutes = checkHour * 60 + minute;
-            if (bossTotalMinutes > currentTotalMinutes) {
-                return { boss, hour: checkHour, minute };
+        bossSchedule.forEach(({ hourType, minute, boss }) => {
+            if (hourType === '홀수' && checkHour % 2 === 0) return;
+            if (hourType === '짝수' && checkHour % 2 !== 0) return;
+
+            const totalMinutes = checkHour * 60 + minute;
+            if (totalMinutes > currentTotalMinutes) {
+                candidates.push({ boss, hour: checkHour, minute, totalMinutes });
             }
-        }
+        });
+    }
+
+    // 가장 가까운 시간을 가진 보스 선택
+    if (candidates.length > 0) {
+        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
+        const { boss, hour, minute } = candidates[0];
+        return { boss, hour, minute };
     }
 
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
+
 
 
 async function getSavedMessageId(guildId) {
