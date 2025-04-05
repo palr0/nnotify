@@ -2,16 +2,12 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
 const server = require('./server.js');
-const fs = require('fs');
-const { Message } = require('discord.js'); // 메시지 타입 체크용
-const path = './bossMessageId.txt';
 const axios = require('axios');
 const bossMessages = new Map(); // key: guild.id, value: message
 //const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
 const TOKEN = config.TOKEN;
 
-const alertUsers = new Set(); // 이모지를 누른 유저 ID 저장
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -60,35 +56,52 @@ function getNextBoss() {
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
 
-async function getSavedMessageId() {
+async function getSavedMessageId(guildId) {
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
             headers: {
                 'X-Master-Key': config.JSONBIN_API_KEY
             }
         });
-        return response.data.record.messageId;
+        return response.data.record[guildId]; // 서버 ID 기준으로 저장된 메시지 ID 반환
     } catch (err) {
         console.error("❌ 메시지 ID 불러오기 실패:", err.message);
         return null;
     }
 }
 
-async function saveMessageId(id) {
+async function saveMessageId(guildId, messageId) {
     try {
-        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, {
-            messageId: id
-        }, {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
             headers: {
+                'X-Master-Key': config.JSONBIN_API_KEY
+            }
+        });
+
+        const updatedRecord = response.data.record || {};
+        updatedRecord[guildId] = messageId;
+
+        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, 
+                        updatedRecord, 
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Master-Key': config.JSONBIN_API_KEY
+                            }
+                        }
+                       );
+        headers: {
                 'Content-Type': 'application/json',
                 'X-Master-Key': config.JSONBIN_API_KEY
             }
         });
-        console.log(`✅ 메시지 ID 저장됨: ${id}`);
+
+        console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error("❌ 메시지 ID 저장 실패:", err.message);
     }
 }
+
 
 async function updateBossMessage(channel) {
     while (true) {
@@ -110,12 +123,16 @@ async function updateBossMessage(channel) {
             .addFields({ name: "📢 다음 보스", value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**` })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
+        let bossMessage = bossMessages.get(channel.guild.id);
+
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] });
         } else {
             bossMessage = await channel.send({ embeds: [embed] });
             await bossMessage.react('🔔');
+            bossMessages.set(channel.guild.id, bossMessage);
         }
+
 
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
@@ -176,46 +193,53 @@ client.on('messageReactionRemove', async (reaction, user) => {
 
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
-    if (!guild) return console.error("❌ 서버를 찾을 수 없습니다.");
+
     client.guilds.cache.forEach(async (guild) => {
         const bossAlertChannel = guild.channels.cache.find(c => c.name === "보스알림");
-    });
-    if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
+        if (!bossAlertChannel) {
+            console.error(`❌ '${guild.name}' 서버에서 '보스알림' 채널을 찾을 수 없습니다.`);
+            return;
+        }
+
+        let bossMessage = null;
 
         try {
-        const savedMessageId = await getSavedMessageId(guild.id);
-        if (savedMessageId) {
-            const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
+            const savedMessageId = await getSavedMessageId(guild.id);
+            if (savedMessageId) {
+                const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
-            if (fetched && fetched.edit) {
-                bossMessage = fetched;
-                console.log(`✅ 이전 메시지 불러오기 성공: ${fetched.id}`);
-            } else {
-                console.warn("⚠️ 메시지 불러왔지만 편집 불가능. 새로 만듭니다.");
+                if (fetched && fetched.edit) {
+                    bossMessage = fetched;
+                    bossMessages.set(guild.id, bossMessage);
+                    console.log(`✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id}`);
+                } else {
+                    console.warn(`⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.`);
+                }
             }
+        } catch (err) {
+            console.error(`⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, err.message);
         }
-    } catch (err) {
-        console.error("⚠️ 메시지 불러오기 실패:", err.message);
-    }
 
-    if (!bossMessage || typeof bossMessage.edit !== 'function') {
-        const embed = new EmbedBuilder()
-            .setColor(0x0099ff)
-            .setTitle('보스 알림 받기')
-            .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-            .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
-            .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
+        if (!bossMessage || typeof bossMessage.edit !== 'function') {
+            const embed = new EmbedBuilder()
+                .setColor(0x0099ff)
+                .setTitle('보스 알림 받기')
+                .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+                .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
+                .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
-        bossMessage = await bossAlertChannel.send({ embeds: [embed] });
-        await bossMessage.react('🔔');
+            bossMessage = await bossAlertChannel.send({ embeds: [embed] });
+            await bossMessage.react('🔔');
 
-        await saveMessageId(guild.id, bossMessage.id); // 서버 ID 기준으로 저장
-    }
+            await saveMessageId(guild.id, bossMessage.id);
+            bossMessages.set(guild.id, bossMessage);
+        }
 
-
-    updateBossMessage(bossAlertChannel, guild.id); // 서버별로 업데이트
-    scheduleBossAlerts(bossAlertChannel);
+        updateBossMessage(bossAlertChannel);
+        scheduleBossAlerts(bossAlertChannel);
+    });
 });
+
 
 function scheduleBossAlerts(channel) {
     for (let hour = 0; hour < 24; hour++) {
