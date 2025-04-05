@@ -1,7 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
-const config = require('./config.env');
-const server = require('./server.js'); // express 서버 실행
+const config = require('./config.json');
 
 const TOKEN = config.TOKEN;
 
@@ -30,43 +29,37 @@ const bossSchedule = [
 
 function getNextBoss() {
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const isOddHour = currentHour % 2 !== 0; // 홀수 시간이면 true, 짝수 시간이면 false
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // 현재 시간(분)
 
     for (let i = 0; i < bossSchedule.length; i++) {
         let { hourType, minute, boss } = bossSchedule[i];
+        const bossHour = now.getHours();
+        const bossTime = bossHour * 60 + minute;
 
-        // 홀수 시간에는 '홀수' hourType을 가진 보스만, 짝수 시간에는 '짝수' hourType을 가진 보스만 선택
-        if ((hourType === '홀수' && !isOddHour) || (hourType === '짝수' && isOddHour)) continue;
+        if (hourType === '홀수' && bossHour % 2 === 0) continue;
+        if (hourType === '짝수' && bossHour % 2 !== 0) continue;
 
-        if (currentMinute < minute) {
+        if (bossTime > currentTime) {
             currentBossIndex = i;
-            return { boss, hour: currentHour, minute };
+            return { boss, hour: bossHour, minute };
         }
     }
 
-    // 다음 시간대의 보스 스케줄 찾기
+    // 다음 시간대의 첫 보스 반환
+    const nextHour = now.getHours() + 1;
     for (let i = 0; i < bossSchedule.length; i++) {
         let { hourType, minute, boss } = bossSchedule[i];
-
-        const nextHour = isOddHour ? currentHour + 1 : currentHour + 1;
-        const isNextHourOdd = nextHour % 2 !== 0;
-
-        if ((hourType === '홀수' && !isNextHourOdd) || (hourType === '짝수' && isNextHourOdd)) continue;
+        if (hourType === '홀수' && nextHour % 2 === 0) continue;
+        if (hourType === '짝수' && nextHour % 2 !== 0) continue;
 
         currentBossIndex = i;
         return { boss, hour: nextHour, minute };
     }
 
-    // 기본적으로 첫 번째 보스를 반환
-    return { ...bossSchedule[0], hour: currentHour + 1 };
+    // 아무 조건도 맞지 않을 경우 fallback
+    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
 
-
-async function getBossAlertRole(guild) {
-    return guild.roles.cache.find(role => role.name === "보스알림");
-}
 
 async function updateBossMessage(channel) {
     while (true) {
@@ -99,49 +92,6 @@ async function updateBossMessage(channel) {
     }
 }
 
-client.on('messageCreate', async (message) => {
-    if (!message.content.startsWith('!') || message.author.bot) return;
-    
-    const args = message.content.slice(1).trim().split(/\s+/);
-    const command = args.shift().toLowerCase();
-    
-    if (command === '보스추가') {
-        if (args.length < 2) return message.reply('사용법: `!보스추가 <이름> <분>`');
-        
-        const bossName = args[0];
-        const minute = parseInt(args[1], 10);
-        if (isNaN(minute) || minute < 0 || minute >= 60) {
-            return message.reply('올바른 분 값을 입력하세요. (0~59)');
-        }
-        
-        bossSchedule.push({ minute, boss: bossName });
-        message.reply(`✅ 보스 \`${bossName}\`가 ${minute}분에 추가되었습니다.`);
-    }
-    
-    if (command === '보스삭제') {
-        if (args.length < 1) return message.reply('사용법: `!보스삭제 <이름>`');
-        
-        const bossName = args[0];
-        const index = bossSchedule.findIndex(b => b.boss === bossName);
-        
-        if (index === -1) {
-            return message.reply(`❌ 보스 \`${bossName}\`를 찾을 수 없습니다.`);
-        }
-        
-        bossSchedule.splice(index, 1);
-        message.reply(`🗑️ 보스 \`${bossName}\`가 삭제되었습니다.`);
-    }
-    
-    if (command === '보스목록') {
-        if (bossSchedule.length === 0) {
-            return message.reply('등록된 보스가 없습니다.');
-        }
-        
-        const bossList = bossSchedule.map(b => `- **${b.boss}**: ${b.minute}분`).join('\n');
-        message.reply(`📜 현재 보스 목록:\n${bossList}`);
-    }
-});
-
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
     const guild = client.guilds.cache.first();
@@ -150,19 +100,9 @@ client.once('ready', async () => {
     const bossAlertChannel = guild.channels.cache.find(channel => channel.name === "보스알림");
     if (!bossAlertChannel) return console.error("❌ '보스알림' 채널을 찾을 수 없습니다.");
 
-    // 봇이 재시작될 때 최대 1000개의 메시지 삭제
-    let deletedMessages = 0;
-    while (deletedMessages < 1000) {
-        const messages = await bossAlertChannel.messages.fetch({ limit: 100 });
-        if (messages.size === 0) break;
-        await bossAlertChannel.bulkDelete(messages).catch(console.error);
-        deletedMessages += messages.size;
-    }
-
     updateBossMessage(bossAlertChannel);
     scheduleBossAlerts(bossAlertChannel);
 });
-
 
 function scheduleBossAlerts(channel) {
     bossSchedule.forEach(({ hourType, minute, boss }) => {
