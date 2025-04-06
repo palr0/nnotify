@@ -311,4 +311,5 @@ function scheduleBossAlerts(channel) {
 
 
 
-client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", 
+client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
+
