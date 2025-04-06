@@ -68,10 +68,8 @@ function getNextBoss() {
             const totalMinutes = checkHour * 60 + minute;
             if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
 
-            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour; // 알림 기준 시간
-            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
-
+            if (hourType === '홀수' && checkHour % 2 === 0) return;
+            if (hourType === '짝수' && checkHour % 2 !== 0) return;
 
             candidates.push({ boss, hour: checkHour, minute, totalMinutes });
         });
@@ -85,6 +83,7 @@ function getNextBoss() {
 
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
+
 
 
 
