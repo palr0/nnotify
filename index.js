@@ -65,33 +65,37 @@ function getNextBoss() {
         const checkHour = now.getHours() + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = checkHour * 60 + minute;
-            if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
+            const targetHour = checkHour;
+            const alertMinute = minute - 1 < 0 ? 59 : minute - 1;
+            const alertHour = minute - 1 < 0 ? targetHour - 1 : targetHour;
 
-            // 🧠 [중요] 1분 전 기준으로 시간 판단해야 하므로 hour과 minute을 먼저 조정
-            let adjustedMinute = minute - 1;
-            let adjustedHour = checkHour;
+            const totalAlertMinutes = targetHour * 60 + (minute - 1 < 0 ? 59 : minute - 1);
+            if (totalAlertMinutes <= currentTotalMinutes) return;
 
-            if (adjustedMinute < 0) {
-                adjustedMinute = 59;
-                adjustedHour -= 1;
-            }
+            if (hourType === '홀수' && alertHour % 2 === 0) return;
+            if (hourType === '짝수' && alertHour % 2 !== 0) return;
 
-            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
-
-            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
+            candidates.push({
+                boss,
+                hour: targetHour,
+                minute
+            });
         });
     }
 
     if (candidates.length > 0) {
-        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
-        const { boss, hour, minute } = candidates[0];
-        return { boss, hour, minute };
+        candidates.sort((a, b) => {
+            const aTime = a.hour * 60 + a.minute;
+            const bTime = b.hour * 60 + b.minute;
+            return aTime - bTime;
+        });
+
+        return candidates[0];
     }
 
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
+
 
 
 
