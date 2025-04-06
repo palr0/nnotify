@@ -55,34 +55,37 @@ const bossSchedule = [
     { hourType: '홀수', minute: 50, boss: '세르칸' }
 ];
 
-function getNextBoss(now = new Date()) {
+function getNextBoss() {
+    const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-    const candidates = [];
 
-    for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = now.getHours() + offset;
+    const upcomingBosses = [];
 
+    for (let hour = now.getHours(); hour <= now.getHours() + 2; hour++) {
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = checkHour * 60 + minute;
+            if (hourType === '홀수' && hour % 2 === 0) return;
+            if (hourType === '짝수' && hour % 2 !== 0) return;
+
+            const totalMinutes = hour * 60 + (minute - 1); // 1분 전 기준
             if (totalMinutes <= currentTotalMinutes) return;
 
-            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour;
-            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
-
-            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
+            upcomingBosses.push({
+                boss,
+                hour,
+                minute,
+                totalMinutes
+            });
         });
     }
 
-    if (candidates.length > 0) {
-        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
-        const { boss, hour, minute } = candidates[0];
+    if (upcomingBosses.length > 0) {
+        upcomingBosses.sort((a, b) => a.totalMinutes - b.totalMinutes);
+        const { boss, hour, minute } = upcomingBosses[0];
         return { boss, hour, minute };
     }
 
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
-
 
 
 
@@ -135,7 +138,7 @@ async function updateBossMessage(channel, initialMessage) {
 
     setInterval(async () => {
         const now = new Date();
-        const { boss, hour, minute } = getNextBoss(now);
+        const { boss, hour, minute } = getNextBoss();
 
         let remainingMinutes = minute - now.getMinutes();
         let remainingSeconds = 60 - now.getSeconds();
@@ -168,7 +171,7 @@ async function updateBossMessage(channel, initialMessage) {
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 2000); // 5초마다 업데이트
+    }, 10000); // 5초마다 업데이트
 }
 
 
