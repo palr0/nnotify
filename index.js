@@ -61,17 +61,13 @@ function getNextBoss() {
 
     const candidates = [];
 
-    // 다음 3시간 동안의 보스들을 찾음
     for (let offset = 0; offset <= 2; offset++) {
         const checkHour = now.getHours() + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
             const totalMinutes = checkHour * 60 + minute;
+            if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
 
-            // 이미 지난 시간은 제외
-            if (totalMinutes <= currentTotalMinutes) return;
-
-            // 홀수/짝수 시간 체크
             const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour; // 알림 기준 시간
             if (hourType === '홀수' && adjustedHour % 2 === 0) return;
             if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
@@ -81,7 +77,7 @@ function getNextBoss() {
     }
 
     if (candidates.length > 0) {
-        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes); // 가장 가까운 보스를 선택
+        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
         const { boss, hour, minute } = candidates[0];
         return { boss, hour, minute };
     }
