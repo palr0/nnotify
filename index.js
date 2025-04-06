@@ -92,7 +92,6 @@ function getNextBoss() {
         });
 
         const next = candidates[0];
-        console.log(`🎯 다음 보스 확정: ${next.boss} (${String(next.hour).padStart(2, '0')}:${String(next.minute).padStart(2, '0')})`);
         return next;
     }
 
