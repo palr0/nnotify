@@ -129,7 +129,7 @@ async function saveMessageId(guildId, messageId) {
 
 
 
-async function updateBossMessage(channel, initialMessage) { 
+async function updateBossMessage(channel, initialMessage) {
     let guildId = channel.guild?.id || channel.guildId;
     bossMessages.set(guildId, initialMessage); // 메시지 저장
 
@@ -146,6 +146,9 @@ async function updateBossMessage(channel, initialMessage) {
         }
 
         if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) return;
+
+        // 남은 시간을 1분 차감
+        remainingMinutes = Math.max(0, remainingMinutes - 1); // 최소 0분으로 설정
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
@@ -164,6 +167,7 @@ async function updateBossMessage(channel, initialMessage) {
         }
     }, 5000); // 5초마다 업데이트
 }
+
 
 client.on('messageReactionAdd', async (reaction, user) => {
     const guildId = reaction.message.guild.id;
