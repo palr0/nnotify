@@ -57,28 +57,49 @@ const bossSchedule = [
 
 function getNextBoss() {
     const now = new Date();
-    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
 
     const candidates = [];
 
     for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = now.getHours() + offset;
+        const checkHour = currentHour + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
             const targetHour = checkHour;
-            const alertMinute = minute - 1 < 0 ? 59 : minute - 1;
-            const alertHour = minute - 1 < 0 ? targetHour - 1 : targetHour;
+            const targetMinute = minute;
+            
+            // 알림 기준으로 1분 전
+            const alertMinute = targetMinute - 1 < 0 ? 59 : targetMinute - 1;
+            const alertHour = targetMinute - 1 < 0 ? targetHour - 1 : targetHour;
 
-            const totalAlertMinutes = targetHour * 60 + (minute - 1 < 0 ? 59 : minute - 1);
-            if (totalAlertMinutes <= currentTotalMinutes) return;
+            const totalAlertMinutes = alertHour * 60 + alertMinute;
 
-            if (hourType === '홀수' && alertHour % 2 === 0) return;
-            if (hourType === '짝수' && alertHour % 2 !== 0) return;
+            // 디버깅 로그
+            console.log(`✅ [${boss}] 알림시간 기준: ${String(alertHour).padStart(2, '0')}:${String(alertMinute).padStart(2, '0')} (총 ${totalAlertMinutes}분)`);
+            console.log(`   현재 시간: ${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')} (총 ${currentTotalMinutes}분)`);
 
+            if (totalAlertMinutes <= currentTotalMinutes) {
+                console.log(`   ❌ 패스 (이미 지난 보스)`);
+                return;
+            }
+
+            if (hourType === '홀수' && alertHour % 2 === 0) {
+                console.log(`   ❌ 패스 (alertHour=${alertHour}는 짝수, 아절 불가)`);
+                return;
+            }
+
+            if (hourType === '짝수' && alertHour % 2 !== 0) {
+                console.log(`   ❌ 패스 (alertHour=${alertHour}는 홀수, 위더 불가)`);
+                return;
+            }
+
+            console.log(`   ✅ 후보 추가`);
             candidates.push({
                 boss,
                 hour: targetHour,
-                minute
+                minute: targetMinute
             });
         });
     }
@@ -90,11 +111,15 @@ function getNextBoss() {
             return aTime - bTime;
         });
 
-        return candidates[0];
+        const next = candidates[0];
+        console.log(`🎯 다음 보스 확정: ${next.boss} (${String(next.hour).padStart(2, '0')}:${String(next.minute).padStart(2, '0')})`);
+        return next;
     }
 
-    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
+    console.log(`❗ 보스 후보 없음`);
+    return { boss: '알 수 없음', hour: currentHour, minute: currentMinute };
 }
+
 
 
 
