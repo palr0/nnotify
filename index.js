@@ -184,7 +184,7 @@ async function updateBossMessage(channel, initialMessage) {
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 10000); // 5초마다 업데이트
+    }, 1000); // 5초마다 업데이트
 }
 
 
