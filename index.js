@@ -22,7 +22,7 @@ client.on('messageCreate', async (message) => {
     if (message.content.startsWith('/시간 한국표준')) {
         const now = new Date();
         const seoulTime = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
-        message.channel.send(현재 한국 표준시(KST)는: ${seoulTime});
+        message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
     }
 
     // /시간 조정 시:분 명령어 처리
@@ -38,7 +38,7 @@ client.on('messageCreate', async (message) => {
         now.setMinutes(minute);
         now.setSeconds(0);
 
-        message.channel.send(시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now});
+        message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
 });
 
@@ -91,7 +91,7 @@ function getNextBoss() {
 
 async function getSavedMessageId(guildId) {
     try {
-        const response = await axios.get(https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest, {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
             headers: {
                 'X-Master-Key': config.JSONBIN_API_KEY
             }
@@ -105,7 +105,7 @@ async function getSavedMessageId(guildId) {
 
 async function saveMessageId(guildId, messageId) {
     try {
-        const response = await axios.get(https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest, {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
             headers: {
                 'X-Master-Key': config.JSONBIN_API_KEY
             }
@@ -114,7 +114,7 @@ async function saveMessageId(guildId, messageId) {
         const updatedRecord = response.data.record || {};
         updatedRecord[guildId] = messageId;
 
-        await axios.put(https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}, 
+        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, 
                         { record: updatedRecord }, 
                         {
                             headers: {
@@ -123,7 +123,7 @@ async function saveMessageId(guildId, messageId) {
                             }
                         });
 
-        console.log(✅ 메시지 ID 저장됨 (${guildId}): ${messageId});
+        console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error("❌ 메시지 ID 저장 실패:", err.message);
     }
@@ -161,7 +161,7 @@ async function updateBossMessage(channel, initialMessage) {
             .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
             .addFields({
                 name: "📢 다음 보스",
-                value: **${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**
+                value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
             })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
@@ -198,9 +198,9 @@ client.on('messageReactionAdd', async (reaction, user) => {
         }
 
         await member.roles.add(role);
-        console.log(✅ ${user.tag} 알림 등록됨 및 역할 부여됨);
+        console.log(`✅ ${user.tag} 알림 등록됨 및 역할 부여됨`);
     } catch (err) {
-        console.error(❌ 역할 부여 실패: ${err.message});
+        console.error(`❌ 역할 부여 실패: ${err.message}`);
     }
 });
 
@@ -219,22 +219,22 @@ client.on('messageReactionRemove', async (reaction, user) => {
         const role = guild.roles.cache.find(r => r.name === '보스알림');
         if (role) {
             await member.roles.remove(role);
-            console.log(🔕 ${user.tag} 알림 해제됨 및 역할 제거됨);
+            console.log(`🔕 ${user.tag} 알림 해제됨 및 역할 제거됨`);
         }
     } catch (err) {
-        console.error(❌ 역할 제거 실패: ${err.message});
+        console.error(`❌ 역할 제거 실패: ${err.message}`);
     }
 });
 
 
 
 client.once('ready', async () => {
-    console.log(✅ ${client.user.tag} 봇이 온라인입니다!);
+    console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
 
     client.guilds.cache.forEach(async (guild) => {
         const bossAlertChannel = guild.channels.cache.find(c => c.name === "보스알림");
         if (!bossAlertChannel) {
-            console.error(❌ '${guild.name}' 서버에서 '보스알림' 채널을 찾을 수 없습니다.);
+            console.error(`❌ '${guild.name}' 서버에서 '보스알림' 채널을 찾을 수 없습니다.`);
             return;
         }
 
@@ -248,13 +248,13 @@ client.once('ready', async () => {
                 if (fetched && fetched.edit) {
                     bossMessage = fetched;
                     bossMessages.set(guild.id, bossMessage);
-                    console.log(✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id});
+                    console.log(`✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id}`);
                 } else {
-                    console.warn(⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.);
+                    console.warn(`⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.`);
                 }
             }
         } catch (err) {
-            console.error(⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:, err.message);
+            console.error(`⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, err.message);
         }
 
         if (!bossMessage || typeof bossMessage.edit !== 'function') {
@@ -262,7 +262,7 @@ client.once('ready', async () => {
                 .setColor(0x0099ff)
                 .setTitle('보스 알림 받기')
                 .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-                .addFields({ name: "📢 다음 보스", value: 불러오는 중... })
+                .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
                 .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
             bossMessage = await bossAlertChannel.send({ embeds: [embed] });
@@ -300,12 +300,12 @@ if (!role) {
 const embed = new EmbedBuilder()
     .setColor(0xff0000)
     .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
-    .setDescription(**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!\n\n⚠️ 이 메시지는 60초 후 삭제됩니다.)
+    .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!\n\n⚠️ 이 메시지는 60초 후 삭제됩니다.`)
     .setFooter({ text: '준비하세요!' });
 
 try {
     const msg = await channel.send({
-        content: ${role}, // 역할 멘션
+        content: `${role}`, // 역할 멘션
         embeds: [embed]
     });
 
@@ -319,11 +319,11 @@ try {
 
 
     // 옵션: 채널에도 안내 메시지 보낼 수 있음
-    //channel.send({ content: 📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨) });
+    //channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
 });
         });
     }
 }
 
 
-client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
+client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", 
