@@ -76,26 +76,6 @@ function getNextBoss() {
 
             const totalAlertMinutes = alertHour * 60 + alertMinute;
 
-            // 디버깅 로그
-            console.log(`✅ [${boss}] 알림시간 기준: ${String(alertHour).padStart(2, '0')}:${String(alertMinute).padStart(2, '0')} (총 ${totalAlertMinutes}분)`);
-            console.log(`   현재 시간: ${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')} (총 ${currentTotalMinutes}분)`);
-
-            if (totalAlertMinutes <= currentTotalMinutes) {
-                console.log(`   ❌ 패스 (이미 지난 보스)`);
-                return;
-            }
-
-            if (hourType === '홀수' && alertHour % 2 === 0) {
-                console.log(`   ❌ 패스 (alertHour=${alertHour}는 짝수, 아절 불가)`);
-                return;
-            }
-
-            if (hourType === '짝수' && alertHour % 2 !== 0) {
-                console.log(`   ❌ 패스 (alertHour=${alertHour}는 홀수, 위더 불가)`);
-                return;
-            }
-
-            console.log(`   ✅ 후보 추가`);
             candidates.push({
                 boss,
                 hour: targetHour,
@@ -116,7 +96,6 @@ function getNextBoss() {
         return next;
     }
 
-    console.log(`❗ 보스 후보 없음`);
     return { boss: '알 수 없음', hour: currentHour, minute: currentMinute };
 }
 
