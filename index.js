@@ -313,9 +313,12 @@ try {
     setTimeout(() => {
         msg.delete().catch(err => console.error("❌ 메시지 삭제 실패:", err.message));
     }, 60 * 1000);
-} catch (err) {
-    console.error("❌ 보스 알림 메시지 전송 실패:", err.message);
-}
+
+    } catch (err) {
+        console.error("❌ 보스 알림 메시지 전송 실패:", err.message);
+    }
+}); // ✅ schedule.scheduleJob 함수 닫는 괄호
+
 
 
     // 옵션: 채널에도 안내 메시지 보낼 수 있음
