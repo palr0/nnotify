@@ -131,14 +131,28 @@ async function saveMessageId(guildId, messageId) {
 
 
 async function updateBossMessage(channel, initialMessage) {
-    const guildId = channel.guild?.id || channel.guildId;
+    let guildId = channel.guild?.id || channel.guildId;
     bossMessages.set(guildId, initialMessage); // 메시지 저장
 
     setInterval(async () => {
         const now = new Date();
         const { boss, hour, minute } = getNextBoss();
 
-        const { remainingMinutes, remainingSeconds } = calculateRemainingTime(hour, minute);
+        let remainingMinutes = minute - now.getMinutes();
+        let remainingSeconds = 60 - now.getSeconds();
+
+        if (remainingSeconds === 60) {
+            remainingMinutes++;
+            remainingSeconds = 0;
+        }
+
+        // 만약 보스 리스폰 시간이 지나지 않았으면 남은 시간 계산 후 업데이트
+        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
+            return; // 이미 지나간 시간에는 업데이트하지 않음
+        }
+
+        // 1분 차감 (보스가 1분 전에 알림을 주기 위한 설정)
+        remainingMinutes = Math.max(0, remainingMinutes - 1); // 최소 0분으로 설정
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
@@ -155,9 +169,8 @@ async function updateBossMessage(channel, initialMessage) {
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 2000); // 2초마다 업데이트
+    }, 2000); // 5초마다 업데이트
 }
-
 
 
 
@@ -299,4 +312,3 @@ function scheduleBossAlerts(channel) {
 
 
 client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
-
