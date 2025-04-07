@@ -1,3 +1,5 @@
+
+
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
@@ -57,26 +59,22 @@ const bossSchedule = [
 
 function getNextBoss() {
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
     const candidates = [];
 
     for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = currentHour + offset;
+        const checkHour = now.getHours() + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const isCheckHourOdd = checkHour % 2 !== 0;
-
-            // ✅ checkHour의 홀짝 조건에 맞게 필터링
-            if (hourType === '홀수' && !isCheckHourOdd) return;
-            if (hourType === '짝수' && isCheckHourOdd) return;
-
-            // ❗ offset이 0일 때, 이미 지난 시간은 제외
-            if (offset === 0 && minute <= currentMinute) return;
-
             const totalMinutes = checkHour * 60 + minute;
+            if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
+
+            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour; // 알림 기준 시간
+            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+
+
             candidates.push({ boss, hour: checkHour, minute, totalMinutes });
         });
     }
@@ -87,12 +85,8 @@ function getNextBoss() {
         return { boss, hour, minute };
     }
 
-    return { boss: '알 수 없음', hour: currentHour, minute: currentMinute };
+    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
-
-
-
-
 
 
 
@@ -140,8 +134,8 @@ async function saveMessageId(guildId, messageId) {
 
 
 async function updateBossMessage(channel, initialMessage) {
-    const guildId = channel.guild?.id || channel.guildId;
-    bossMessages.set(guildId, initialMessage); // 초기 메시지 저장
+    let guildId = channel.guild?.id || channel.guildId;
+    bossMessages.set(guildId, initialMessage); // 메시지 저장
 
     setInterval(async () => {
         const now = new Date();
@@ -155,44 +149,31 @@ async function updateBossMessage(channel, initialMessage) {
             remainingSeconds = 0;
         }
 
+        // 만약 보스 리스폰 시간이 지나지 않았으면 남은 시간 계산 후 업데이트
         if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
-            return; // 이미 지난 보스 시간은 무시
+            return; // 이미 지나간 시간에는 업데이트하지 않음
         }
 
-        remainingMinutes = Math.max(0, remainingMinutes - 1); // 1분 미리 알림
+        // 1분 차감 (보스가 1분 전에 알림을 주기 위한 설정)
+        remainingMinutes = Math.max(0, remainingMinutes - 1); // 최소 0분으로 설정
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
             .setTitle('보스 알림 받기')
             .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-            .addFields({ name: "📢 다음 보스", value: `${boss} - ${hour}시 ${minute}분 (약 ${remainingMinutes}분 ${remainingSeconds}초 남음)` })
+            .addFields({
+                name: "📢 다음 보스",
+                value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
+            })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
-        let bossMessage = bossMessages.get(guildId);
+        const bossMessage = bossMessages.get(guildId);
 
-        // 메시지가 없거나 편집 불가능할 경우 새로 생성
-        if (!bossMessage || typeof bossMessage.edit !== 'function') {
-            try {
-                bossMessage = await channel.send({ embeds: [embed] });
-                await bossMessage.react('🔔');
-                await saveMessageId(guildId, bossMessage.id);
-                bossMessages.set(guildId, bossMessage);
-                console.log(`🆕 ${channel.guild?.name || guildId}에 새 보스 메시지 생성됨`);
-            } catch (err) {
-                console.error(`❌ 메시지 생성 실패:`, err.stack || err.message);
-                return;
-            }
-        } else {
-            // 메시지 업데이트
-            try {
-                await bossMessage.edit({ embeds: [embed] });
-            } catch (err) {
-                console.error(`⚠️ 메시지 업데이트 실패:`, err.stack || err.message);
-            }
+        if (bossMessage) {
+            await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 5000); // 5초 간격으로 업데이트
+    }, 2000); // 5초마다 업데이트
 }
-
 
 
 
@@ -261,44 +242,40 @@ client.once('ready', async () => {
 
         let bossMessage = null;
 
-        let retryCount = 0;
-        const maxRetries = 3;
-        let fetched = null;
+        try {
+            const savedMessageId = await getSavedMessageId(guild.id);
+            if (savedMessageId) {
+                const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
 
-        while (retryCount < maxRetries && !fetched) {
-            try {
-                const savedMessageId = await getSavedMessageId(guild.id);
-                if (!savedMessageId) throw new Error("저장된 메시지 ID가 없습니다.");
-
-                fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
-
-                if (!fetched || typeof fetched.edit !== 'function') {
-                    throw new Error("메시지를 불러왔지만 편집이 불가능합니다.");
+                if (fetched && fetched.edit) {
+                    bossMessage = fetched;
+                    bossMessages.set(guild.id, bossMessage);
+                    console.log(`✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id}`);
+                } else {
+                    console.warn(`⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.`);
                 }
-
-                bossMessage = fetched;
-                bossMessages.set(guild.id, bossMessage);
-                console.log(`✅ ${guild.name} 서버 메시지 불러오기 성공: ${fetched.id}`);
-            } catch (err) {
-                retryCount++;
-                console.warn(`⚠️ ${guild.name} 서버 메시지 불러오기 실패 (시도 ${retryCount}/${maxRetries}):`, err.stack || err.message);
-                await new Promise(res => setTimeout(res, 2000)); // 2초 대기 후 재시도
             }
+        } catch (err) {
+            console.error(`⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, err.message);
         }
 
-        // 메시지 fetch에 실패한 경우 새로 메시지를 생성
-        if (!bossMessage) {
-            try {
-                const newMessage = await bossAlertChannel.send('보스 알림 메시지를 초기화합니다.');
-                bossMessages.set(guild.id, newMessage);
-                await saveMessageId(guild.id, newMessage.id);
-                console.log(`🆕 ${guild.name} 서버에 새 메시지를 생성하고 저장했습니다: ${newMessage.id}`);
-            } catch (creationError) {
-                console.error(`❌ ${guild.name} 서버에서 새 메시지를 생성하는 데 실패했습니다:`, creationError.stack || creationError.message);
-            }
+        if (!bossMessage || typeof bossMessage.edit !== 'function') {
+            const embed = new EmbedBuilder()
+                .setColor(0x0099ff)
+                .setTitle('보스 알림 받기')
+                .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+                .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
+                .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
+
+            bossMessage = await bossAlertChannel.send({ embeds: [embed] });
+            await bossMessage.react('🔔');
+
+            await saveMessageId(guild.id, bossMessage.id);
+            bossMessages.set(guild.id, bossMessage);
         }
-        await updateBossMessage(bossAlertChannel, bossMessage); // 보스 메시지 업데이트 주기 설정
-scheduleBossAlerts(bossAlertChannel); // 🔔 보스 알림 스케줄 등록
+
+        updateBossMessage(bossAlertChannel, bossMessage); // 호출 시 메시지도 전달
+        scheduleBossAlerts(bossAlertChannel);
     });
 });
 
