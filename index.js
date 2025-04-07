@@ -60,7 +60,6 @@ function getNextBoss() {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const currentTotalMinutes = currentHour * 60 + currentMinute;
-    const isCurrentHourOdd = currentHour % 2 !== 0;
 
     const candidates = [];
 
@@ -68,11 +67,13 @@ function getNextBoss() {
         const checkHour = currentHour + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            // ✅ 현재 시간이 홀/짝이면 그에 맞는 보스만 포함
-            if (hourType === '홀수' && !isCurrentHourOdd) return;
-            if (hourType === '짝수' && isCurrentHourOdd) return;
+            const isCheckHourOdd = checkHour % 2 !== 0;
 
-            // ❗ offset 0일 경우, 이미 지난 시간은 건너뛰기
+            // ✅ checkHour의 홀짝 조건에 맞게 필터링
+            if (hourType === '홀수' && !isCheckHourOdd) return;
+            if (hourType === '짝수' && isCheckHourOdd) return;
+
+            // ❗ offset이 0일 때, 이미 지난 시간은 제외
             if (offset === 0 && minute <= currentMinute) return;
 
             const totalMinutes = checkHour * 60 + minute;
@@ -88,6 +89,7 @@ function getNextBoss() {
 
     return { boss: '알 수 없음', hour: currentHour, minute: currentMinute };
 }
+
 
 
 
@@ -295,6 +297,8 @@ client.once('ready', async () => {
                 console.error(`❌ ${guild.name} 서버에서 새 메시지를 생성하는 데 실패했습니다:`, creationError.stack || creationError.message);
             }
         }
+        await updateBossMessage(bossAlertChannel, bossMessage); // 보스 메시지 업데이트 주기 설정
+scheduleBossAlerts(bossAlertChannel); // 🔔 보스 알림 스케줄 등록
     });
 });
 
