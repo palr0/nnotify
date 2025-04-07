@@ -89,6 +89,30 @@ function getNextBoss() {
 }
 
 
+function getNextTwoBosses() {
+    const now = new Date();
+    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const candidates = [];
+
+    for (let offset = 0; offset <= 2; offset++) {
+        const checkHour = now.getHours() + offset;
+
+        bossSchedule.forEach(({ hourType, minute, boss }) => {
+            const totalMinutes = checkHour * 60 + minute;
+            if (totalMinutes <= currentTotalMinutes) return;
+
+            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour;
+            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+
+            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
+        });
+    }
+
+    candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
+    return candidates.slice(0, 2); // 최대 2개 반환
+}
 
 
 async function getSavedMessageId(guildId) {
@@ -135,13 +159,15 @@ async function saveMessageId(guildId, messageId) {
 
 async function updateBossMessage(channel, initialMessage) {
     let guildId = channel.guild?.id || channel.guildId;
-    bossMessages.set(guildId, initialMessage); // 메시지 저장
+    bossMessages.set(guildId, initialMessage);
 
     setInterval(async () => {
         const now = new Date();
-        const { boss, hour, minute } = getNextBoss();
+        const [nextBoss, nextNextBoss] = getNextTwoBosses();
 
-        let remainingMinutes = minute - now.getMinutes();
+        if (!nextBoss) return;
+
+        let remainingMinutes = nextBoss.minute - now.getMinutes();
         let remainingSeconds = 60 - now.getSeconds();
 
         if (remainingSeconds === 60) {
@@ -149,31 +175,40 @@ async function updateBossMessage(channel, initialMessage) {
             remainingSeconds = 0;
         }
 
-        // 만약 보스 리스폰 시간이 지나지 않았으면 남은 시간 계산 후 업데이트
         if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
-            return; // 이미 지나간 시간에는 업데이트하지 않음
+            return;
         }
 
-        // 1분 차감 (보스가 1분 전에 알림을 주기 위한 설정)
-        remainingMinutes = Math.max(0, remainingMinutes - 1); // 최소 0분으로 설정
+        remainingMinutes = Math.max(0, remainingMinutes - 1);
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
             .setTitle('보스 알림 받기')
             .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-            .addFields({
-                name: "📢 다음 보스",
-                value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
-            })
+            .addFields(
+                {
+                    name: "📢 다음 보스",
+                    value: `**${nextBoss.boss}**\n남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
+                },
+                nextNextBoss
+                    ? {
+                        name: "🕓 다음 다음 보스",
+                        value: `**${nextNextBoss.boss}**\n등장 예정: ${nextNextBoss.hour}시 ${nextNextBoss.minute}분`
+                    }
+                    : {
+                        name: "🕓 다음 다음 보스",
+                        value: "정보 없음"
+                    }
+            )
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
         const bossMessage = bossMessages.get(guildId);
-
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 2000); // 5초마다 업데이트
+    }, 2000);
 }
+
 
 
 
