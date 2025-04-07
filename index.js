@@ -59,30 +59,28 @@ function getNextBoss() {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const candidates = [];
+    let nearestBoss = null;
+    let nearestTimeDiff = Infinity;
 
-    for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = now.getHours() + offset;
+    for (let offset = 0; offset <= 3; offset++) {
+        const checkHour = (now.getHours() + offset) % 24;
+        const bosses = bossSchedule[checkHour];
+        if (!bosses) continue;
 
-        bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = checkHour * 60 + minute;
-            if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
+        for (const boss of bosses) {
+            const totalMinutes = boss.time[0] * 60 + boss.time[1];
+            const timeDiff = totalMinutes - currentTotalMinutes;
 
-            if (hourType === '홀수' && checkHour % 2 === 0) return;
-            if (hourType === '짝수' && checkHour % 2 !== 0) return;
-
-            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
-        });
+            if (timeDiff > 0 && timeDiff < nearestTimeDiff) {
+                nearestTimeDiff = timeDiff;
+                nearestBoss = boss;
+            }
+        }
     }
 
-    if (candidates.length > 0) {
-        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
-        const { boss, hour, minute } = candidates[0];
-        return { boss, hour, minute };
-    }
-
-    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
+    return nearestBoss || { name: "알 수 없음", time: [0, 0] };
 }
+
 
 
 
