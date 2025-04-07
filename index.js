@@ -139,24 +139,21 @@ async function updateBossMessage(channel, initialMessage) {
         const now = new Date();
         const { boss, hour, minute } = getNextBoss();
 
-        const bossTime = new Date();
-        bossTime.setHours(hour);
-        bossTime.setMinutes(minute);
-        bossTime.setSeconds(0);
-        bossTime.setMilliseconds(0);
+        let remainingMinutes = minute - now.getMinutes();
+        let remainingSeconds = 60 - now.getSeconds();
 
-        // 보스 알림이 1분 전에 가야 하니까 1분 빼기
-        let diffMs = bossTime.getTime() - now.getTime() - 60 * 1000;
+        if (remainingSeconds === 60) {
+            remainingMinutes++;
+            remainingSeconds = 0;
+        }
 
-        // 음수면 이미 지난 거니까 종료
-        if (diffMs <= 0) return;
+        // 만약 보스 리스폰 시간이 지나지 않았으면 남은 시간 계산 후 업데이트
+        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
+            return; // 이미 지나간 시간에는 업데이트하지 않음
+        }
 
-        let remainingMinutes = Math.floor(diffMs / 60000);
-        let remainingSeconds = Math.floor((diffMs % 60000) / 1000);
-
-        // 최소 0으로 보정
-        remainingMinutes = Math.max(0, remainingMinutes);
-        remainingSeconds = Math.max(0, remainingSeconds);
+        // 1분 차감 (보스가 1분 전에 알림을 주기 위한 설정)
+        remainingMinutes = Math.max(0, remainingMinutes - 1); // 최소 0분으로 설정
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
@@ -169,12 +166,12 @@ async function updateBossMessage(channel, initialMessage) {
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
         const bossMessage = bossMessages.get(guildId);
+
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 2000); // 2초마다 업데이트
+    }, 2000); // 5초마다 업데이트
 }
-
 
 
 
