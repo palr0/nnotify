@@ -60,10 +60,12 @@ const bossSchedule = [
 function getUpcomingBosses(count = 2) {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const oneHourLater = currentTotalMinutes + 60;
+
     const bosses = [];
 
-    for (let offset = 0; offset <= 3; offset++) {
-        const checkTime = new Date(now.getTime() + offset * 60000); // 매 분 단위로 체크
+    for (let i = 0; i <= 60; i++) { // 1분 단위로 60분 동안 확인
+        const checkTime = new Date(now.getTime() + i * 60000);
         const hour = checkTime.getHours();
         const minute = checkTime.getMinutes();
 
@@ -76,22 +78,16 @@ function getUpcomingBosses(count = 2) {
             if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
 
             const totalMinutes = hour * 60 + bossMinute;
-            if (totalMinutes > currentTotalMinutes) {
-                // 중복 방지
-                if (!bosses.some(b => b.boss === boss && b.minute === bossMinute)) {
-                    bosses.push({ boss, hour, minute });
-                }
+            if (totalMinutes > currentTotalMinutes && totalMinutes <= oneHourLater) {
+                bosses.push({ boss, hour, minute });
             }
         });
 
         if (bosses.length >= count) break;
     }
 
-    // 시간 순으로 정렬
-    bosses.sort((a, b) => (a.hour * 60 + a.minute) - (b.hour * 60 + b.minute));
     return bosses.slice(0, count);
 }
-
 
 
 
