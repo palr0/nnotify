@@ -121,7 +121,7 @@ async function saveMessageId(guildId, messageId) {
                             }
                         });
 
-        console.log(✅ 메시지 ID 저장됨 (${guildId}): ${messageId});
+console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error("❌ 메시지 ID 저장 실패:", err.message);
     }
