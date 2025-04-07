@@ -89,7 +89,7 @@ function getNextBoss() {
 
 async function getSavedMessageId(guildId) {
     try {
-        const response = await axios.get(https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest, {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
             headers: {
                 'X-Master-Key': config.JSONBIN_API_KEY
             }
@@ -103,7 +103,7 @@ async function getSavedMessageId(guildId) {
 
 async function saveMessageId(guildId, messageId) {
     try {
-        const response = await axios.get(https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest, {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
             headers: {
                 'X-Master-Key': config.JSONBIN_API_KEY
             }
