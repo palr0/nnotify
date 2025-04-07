@@ -58,34 +58,32 @@ const bossSchedule = [
 function getUpcomingBosses(count = 2) {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-    const oneHourLater = currentTotalMinutes + 60;
 
-    const bosses = [];
+    const possibleBosses = [];
 
-    for (let i = 0; i <= 60; i++) {
-        const checkTime = new Date(now.getTime() + i * 60000);
-        const hour = checkTime.getHours();
-        const minute = checkTime.getMinutes();
-        const totalMinutes = hour * 60 + minute;
+    for (let h = 0; h <= 2; h++) {
+        const checkHour = now.getHours() + h;
 
-        bossSchedule.forEach(({ hourType, minute: bossMinute, boss }) => {
-            if (minute !== bossMinute) return;
+        bossSchedule.forEach(({ hourType, minute, boss }) => {
+            const totalMinutes = checkHour * 60 + minute;
+            if (totalMinutes <= currentTotalMinutes) return;
 
-            const adjustedHour = (bossMinute - 1 < 0) ? hour - 1 : hour;
+            const adjustedHour = (minute === 0) ? checkHour - 1 : checkHour;
 
             if (hourType === '홀수' && adjustedHour % 2 === 0) return;
             if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
 
-            if (totalMinutes > currentTotalMinutes && totalMinutes <= oneHourLater) {
-                bosses.push({ boss, hour, minute, totalMinutes });
-            }
+            possibleBosses.push({ boss, hour: checkHour, minute, totalMinutes });
         });
     }
 
-    // 정확한 시간 순으로 정렬
-    bosses.sort((a, b) => a.totalMinutes - b.totalMinutes);
-    return bosses.slice(0, count);
+    // 시간 기준으로 정렬
+    possibleBosses.sort((a, b) => a.totalMinutes - b.totalMinutes);
+
+    return possibleBosses.slice(0, count);
 }
+
+
 
 
 
