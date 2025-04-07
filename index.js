@@ -46,14 +46,16 @@ client.on('messageCreate', async (message) => {
 let currentBossIndex = 0;
 
 const bossSchedule = [
-    { minute: 0, boss: '그루트킹' },
-    { minute: 30, boss: '해적 선장' },
-    { hourType: '홀수', minute: 10, boss: '아절 브루트' },
-    { hourType: '짝수', minute: 10, boss: '위더' },
-    { hourType: '홀수', minute: 40, boss: '쿵푸' },
-    { hourType: '짝수', minute: 40, boss: '에이트' },
-    { hourType: '홀수', minute: 50, boss: '세르칸' }
+    { hour: 0, minute: 0, boss: '그루트킹' },
+    { hour: 0, minute: 30, boss: '해적 선장' },
+    { hour: 1, minute: 10, boss: '아절 브루트' },
+    { hour: 2, minute: 10, boss: '위더' },
+    { hour: 1, minute: 40, boss: '쿵푸' },
+    { hour: 2, minute: 40, boss: '에이트' },
+    { hour: 1, minute: 50, boss: '세르칸' },
+    // 나머지 스케줄도 동일한 방식으로 추가
 ];
+
 
 function getNextBoss() {
     const now = new Date();
@@ -62,34 +64,19 @@ function getNextBoss() {
     let nearestBoss = null;
     let nearestTimeDiff = Infinity;
 
-    for (let offset = 0; offset <= 3; offset++) {
-        const checkHour = (now.getHours() + offset) % 24;
-        
-        // 조건에 맞는 보스만 필터링
-        const bosses = bossSchedule.filter(b => {
-            if (b.hourType === '홀수' && checkHour % 2 !== 1) return false;
-            if (b.hourType === '짝수' && checkHour % 2 !== 0) return false;
-            if (b.minute == null) return false;
-            return true;
-        });
+    for (const boss of bossSchedule) {
+        const bossTotalMinutes = boss.hour * 60 + boss.minute;
+        const timeDiff = bossTotalMinutes - currentTotalMinutes;
 
-        for (const boss of bosses) {
-            const totalMinutes = checkHour * 60 + boss.minute;
-            const timeDiff = totalMinutes - currentTotalMinutes;
-
-            if (timeDiff > 0 && timeDiff < nearestTimeDiff) {
-                nearestTimeDiff = timeDiff;
-                nearestBoss = {
-                    name: boss.boss,
-                    hour: checkHour,
-                    minute: boss.minute
-                };
-            }
+        if (timeDiff > 0 && timeDiff < nearestTimeDiff) {
+            nearestTimeDiff = timeDiff;
+            nearestBoss = boss;
         }
     }
 
-    return nearestBoss || { name: "알 수 없음", hour: 0, minute: 0 };
+    return nearestBoss || { boss: "알 수 없음", hour: 0, minute: 0 };
 }
+
 
 
 
@@ -141,28 +128,28 @@ async function saveMessageId(guildId, messageId) {
 
 
 async function updateBossMessage(channel, initialMessage) {
-    let guildId = channel.guild?.id || channel.guildId;
-    bossMessages.set(guildId, initialMessage); // 메시지 저장
+    const guildId = channel.guild.id;
+    bossMessages.set(guildId, initialMessage);
 
     setInterval(async () => {
         const now = new Date();
-        const { boss, hour, minute } = getNextBoss();
+        const nextBoss = getNextBoss();
 
-        let remainingMinutes = minute - now.getMinutes();
-        let remainingSeconds = 60 - now.getSeconds();
-
-        if (remainingSeconds === 60) {
-            remainingMinutes++;
-            remainingSeconds = 0;
+        if (!nextBoss || nextBoss.boss === "알 수 없음") {
+            console.error("다음 보스를 찾을 수 없습니다.");
+            return;
         }
 
-        // 만약 보스 리스폰 시간이 지나지 않았으면 남은 시간 계산 후 업데이트
-        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
-            return; // 이미 지나간 시간에는 업데이트하지 않음
-        }
+        const { boss, hour, minute } = nextBoss;
 
-        // 1분 차감 (보스가 1분 전에 알림을 주기 위한 설정)
-        remainingMinutes = Math.max(0, remainingMinutes - 1); // 최소 0분으로 설정
+        const bossTime = new Date();
+        bossTime.setHours(hour);
+        bossTime.setMinutes(minute);
+        bossTime.setSeconds(0);
+
+        const timeDiff = bossTime - now;
+        const remainingMinutes = Math.floor(timeDiff / 60000);
+        const remainingSeconds = Math.floor((timeDiff % 60000) / 1000);
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
@@ -170,7 +157,7 @@ async function updateBossMessage(channel, initialMessage) {
             .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
             .addFields({
                 name: "📢 다음 보스",
-                value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
+                value: `**${boss}** 등장까지 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
             })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
@@ -179,7 +166,7 @@ async function updateBossMessage(channel, initialMessage) {
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 2000); // 5초마다 업데이트
+    }, 5000); // 5초마다 업데이트
 }
 
 
