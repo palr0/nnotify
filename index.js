@@ -1,4 +1,3 @@
-
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
