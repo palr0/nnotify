@@ -39,7 +39,6 @@ client.on('messageCreate', async (message) => {
         now.setHours(hour);
         now.setMinutes(minute);
         now.setSeconds(0);
-
         message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
 });
@@ -59,6 +58,7 @@ const bossSchedule = [
 
 function getUpcomingBosses(count = 2) {
     const now = new Date();
+    console.log(`🕒 [getUpcomingBosses] 현재 시각: ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`);
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
     const oneHourLater = currentTotalMinutes + 60;
 
