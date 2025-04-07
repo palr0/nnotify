@@ -64,23 +64,33 @@ function getNextBoss() {
 
     for (let offset = 0; offset <= 3; offset++) {
         const checkHour = (now.getHours() + offset) % 24;
-        const bosses = bossSchedule[checkHour];
-
-        if (!Array.isArray(bosses)) continue; // ← 배열인지 체크!
+        
+        // 조건에 맞는 보스만 필터링
+        const bosses = bossSchedule.filter(b => {
+            if (b.hourType === '홀수' && checkHour % 2 !== 1) return false;
+            if (b.hourType === '짝수' && checkHour % 2 !== 0) return false;
+            if (b.minute == null) return false;
+            return true;
+        });
 
         for (const boss of bosses) {
-            const totalMinutes = boss.time[0] * 60 + boss.time[1];
+            const totalMinutes = checkHour * 60 + boss.minute;
             const timeDiff = totalMinutes - currentTotalMinutes;
 
             if (timeDiff > 0 && timeDiff < nearestTimeDiff) {
                 nearestTimeDiff = timeDiff;
-                nearestBoss = boss;
+                nearestBoss = {
+                    name: boss.boss,
+                    hour: checkHour,
+                    minute: boss.minute
+                };
             }
         }
     }
 
-    return nearestBoss || { name: "알 수 없음", time: [0, 0] };
+    return nearestBoss || { name: "알 수 없음", hour: 0, minute: 0 };
 }
+
 
 
 
