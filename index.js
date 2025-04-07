@@ -5,7 +5,7 @@ const server = require('./server.js');
 const axios = require('axios');
 require('dotenv').config({ path: './config.env' });
 const TOKEN = process.env.TOKEN;
-const bossMessages = new Map();
+const bossMessages = new Map(); // key: guild.id, value: message
 const alertUsers = new Set();
 
 const client = new Client({
@@ -25,8 +25,9 @@ client.on('messageCreate', async (message) => {
         message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
     }
 
+    // /시간 조정 시:분 명령어 처리
     if (message.content.startsWith('/시간 조정')) {
-        const timeString = message.content.split(' ')[1];
+        const timeString = message.content.split(' ')[1]; // "시:분" 형식
         if (!timeString || !/^([0-9]{1,2}):([0-9]{2})$/.test(timeString)) {
             return message.channel.send('올바른 시간 형식이 아닙니다. 예: /시간 조정 15:30');
         }
@@ -41,47 +42,49 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+
+let currentBossIndex = 0;
+
 const bossSchedule = [
     { minute: 0, boss: '그루트킹' },
-    { minute: 10, boss: '위더' },
     { minute: 30, boss: '해적 선장' },
-    { minute: 40, boss: '에이트' },
-    { minute: 50, boss: '세르칸' },
-    { minute: 70, boss: '그루트킹' },
-    { minute: 80, boss: '아절 브루트' },
-    { minute: 110, boss: '해적 선장' },
-    { minute: 120, boss: '쿵푸' }
+    { hourType: '홀수', minute: 10, boss: '아절 브루트' },
+    { hourType: '짝수', minute: 10, boss: '위더' },
+    { hourType: '홀수', minute: 40, boss: '쿵푸' },
+    { hourType: '짝수', minute: 40, boss: '에이트' },
+    { hourType: '홀수', minute: 50, boss: '세르칸' }
 ];
 
 function getUpcomingBosses(count = 2) {
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const oneHourLater = currentTotalMinutes + 60;
 
-    const scheduleLoop = [
-        { time: 0, boss: '그루트킹' },
-        { time: 10, boss: '위더' },
-        { time: 30, boss: '해적 선장' },
-        { time: 40, boss: '에이트' },
-        { time: 60, boss: '그루트킹' },
-        { time: 70, boss: '아절 브루트' },
-        { time: 90, boss: '해적 선장' },
-        { time: 100, boss: '쿵푸' },
-        { time: 110, boss: '세르칸' }
-    ];
+    const bosses = [];
 
-    const offset = currentMinutes % 120;
-    const future = scheduleLoop.map(({ time, boss }) => {
-        let total = currentMinutes - offset + time;
-        if (time <= offset) total += 120;
-        return { boss, total };
-    });
+    for (let i = 0; i <= 60; i++) { // 1분 단위로 60분 동안 확인
+        const checkTime = new Date(now.getTime() + i * 60000);
+        const hour = checkTime.getHours();
+        const minute = checkTime.getMinutes();
 
-    future.sort((a, b) => a.total - b.total);
-    return future.slice(0, count).map(({ boss, total }) => ({
-        boss,
-        hour: Math.floor(total / 60),
-        minute: total % 60
-    }));
+        bossSchedule.forEach(({ hourType, minute: bossMinute, boss }) => {
+            if (minute !== bossMinute) return;
+
+            const adjustedHour = (bossMinute - 1 < 0) ? hour - 1 : hour;
+
+            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+
+            const totalMinutes = hour * 60 + bossMinute;
+            if (totalMinutes > currentTotalMinutes && totalMinutes <= oneHourLater) {
+                bosses.push({ boss, hour, minute });
+            }
+        });
+
+        if (bosses.length >= count) break;
+    }
+
+    return bosses.slice(0, count);
 }
 
 
