@@ -159,7 +159,7 @@ async function updateBossMessage(channel, initialMessage) {
             .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
             .addFields({
                 name: "📢 다음 보스",
-                value: **${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**
+                value: `**${boss}** 남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
             })
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
