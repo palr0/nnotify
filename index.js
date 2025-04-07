@@ -112,7 +112,7 @@ async function saveMessageId(guildId, messageId) {
         const updatedRecord = response.data.record || {};
         updatedRecord[guildId] = messageId;
 
-        await axios.put(https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}, 
+        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, 
                         { record: updatedRecord }, 
                         {
                             headers: {
