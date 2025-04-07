@@ -22,7 +22,7 @@ client.on('messageCreate', async (message) => {
     if (message.content.startsWith('/시간 한국표준')) {
         const now = new Date();
         const seoulTime = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
-        message.channel.send(현재 한국 표준시(KST)는: ${seoulTime});
+        message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
     }
 
     // /시간 조정 시:분 명령어 처리
@@ -37,8 +37,7 @@ client.on('messageCreate', async (message) => {
         now.setHours(hour);
         now.setMinutes(minute);
         now.setSeconds(0);
-
-        message.channel.send(시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now});
+        message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
 });
 
