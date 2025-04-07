@@ -139,8 +139,27 @@ async function updateBossMessage(channel, initialMessage) {
         const now = new Date();
         const { boss, hour, minute } = getNextBoss();
 
-        let remainingMinutes = minute - now.getMinutes();
-        let remainingSeconds = 60 - now.getSeconds();
+        const now = new Date();
+const { boss, hour, minute } = getNextBoss();
+
+const bossTime = new Date();
+bossTime.setHours(hour);
+bossTime.setMinutes(minute);
+bossTime.setSeconds(0);
+bossTime.setMilliseconds(0);
+
+// 현재 시간과 보스 시간의 차이 계산
+let diffMs = bossTime.getTime() - now.getTime();
+
+// 보스 알림이 1분 전에 가야 하니까 1분 빼기
+diffMs -= 60 * 1000;
+
+// 음수면 이미 지난 거니까 종료
+if (diffMs <= 0) return;
+
+const remainingMinutes = Math.floor(diffMs / 60000);
+const remainingSeconds = Math.floor((diffMs % 60000) / 1000);
+
 
         if (remainingSeconds === 60) {
             remainingMinutes++;
