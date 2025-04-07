@@ -65,7 +65,8 @@ function getNextBoss() {
     for (let offset = 0; offset <= 3; offset++) {
         const checkHour = (now.getHours() + offset) % 24;
         const bosses = bossSchedule[checkHour];
-        if (!bosses) continue;
+
+        if (!Array.isArray(bosses)) continue; // ← 배열인지 체크!
 
         for (const boss of bosses) {
             const totalMinutes = boss.time[0] * 60 + boss.time[1];
@@ -80,6 +81,7 @@ function getNextBoss() {
 
     return nearestBoss || { name: "알 수 없음", time: [0, 0] };
 }
+
 
 
 
