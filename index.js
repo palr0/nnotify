@@ -1,11 +1,10 @@
-
-
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
 const server = require('./server.js');
 const axios = require('axios');
 require('dotenv').config({ path: './config.env' });
+
 const TOKEN = process.env.TOKEN;
 const bossMessages = new Map(); // key: guild.id, value: message
 const alertUsers = new Set();
@@ -21,16 +20,21 @@ const client = new Client({
 });
 
 client.on('messageCreate', async (message) => {
+    console.log(`[📩] 메시지 수신: ${message.content} / 채널: ${message.channel.name}`);
+
     if (message.content.startsWith('/시간 한국표준')) {
         const now = new Date();
         const seoulTime = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+        console.log(`[🕒] 한국 시간 요청됨: ${seoulTime}`);
         message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
     }
 
-    // /시간 조정 시:분 명령어 처리
     if (message.content.startsWith('/시간 조정')) {
-        const timeString = message.content.split(' ')[1]; // "시:분" 형식
+        const timeString = message.content.split(' ')[1];
+        console.log(`[🛠️] 시간 조정 명령 감지: ${timeString}`);
+
         if (!timeString || !/^([0-9]{1,2}):([0-9]{2})$/.test(timeString)) {
+            console.warn('⛔ 잘못된 시간 형식 입력');
             return message.channel.send('올바른 시간 형식이 아닙니다. 예: /시간 조정 15:30');
         }
 
@@ -39,12 +43,12 @@ client.on('messageCreate', async (message) => {
         now.setHours(hour);
         now.setMinutes(minute);
         now.setSeconds(0);
+
+        console.log(`✅ 시간 조정됨: ${now}`);
         message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
 });
 
-
-let currentBossIndex = 0;
 
 const bossSchedule = [
     { minute: 0, boss: '그루트킹' },
@@ -57,14 +61,13 @@ const bossSchedule = [
 ];
 
 function getUpcomingBosses(count = 2) {
+    console.log('[🔍] 다음 보스 탐색 시작');
     const now = new Date();
-    console.log(`🕒 [getUpcomingBosses] 현재 시각: ${now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`);
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
     const oneHourLater = currentTotalMinutes + 60;
-
     const bosses = [];
 
-    for (let i = 0; i <= 60; i++) { // 1분 단위로 60분 동안 확인
+    for (let i = 0; i <= 60; i++) {
         const checkTime = new Date(now.getTime() + i * 60000);
         const hour = checkTime.getHours();
         const minute = checkTime.getMinutes();
@@ -73,13 +76,13 @@ function getUpcomingBosses(count = 2) {
             if (minute !== bossMinute) return;
 
             const adjustedHour = (bossMinute - 1 < 0) ? hour - 1 : hour;
-
             if (hourType === '홀수' && adjustedHour % 2 === 0) return;
             if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
 
             const totalMinutes = hour * 60 + bossMinute;
             if (totalMinutes > currentTotalMinutes && totalMinutes <= oneHourLater) {
                 bosses.push({ boss, hour, minute });
+                console.log(`➡️ 예측된 보스: ${boss} at ${hour}:${minute}`);
             }
         });
 
@@ -90,43 +93,14 @@ function getUpcomingBosses(count = 2) {
 }
 
 
-
-
-
-function getNextTwoBosses() {
-    const now = new Date();
-    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const candidates = [];
-
-    for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = now.getHours() + offset;
-
-        bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = checkHour * 60 + minute;
-            if (totalMinutes <= currentTotalMinutes) return;
-
-            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour;
-            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
-
-            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
-        });
-    }
-
-    candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
-    return candidates.slice(0, 2); // 최대 2개 반환
-}
-
-
 async function getSavedMessageId(guildId) {
+    console.log(`[📦] 메시지 ID 불러오기 요청: ${guildId}`);
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
-            headers: {
-                'X-Master-Key': config.JSONBIN_API_KEY
-            }
+            headers: { 'X-Master-Key': config.JSONBIN_API_KEY }
         });
-        return response.data.record[guildId]; // 서버 ID 기준으로 저장된 메시지 ID 반환
+        console.log('✅ JSONBin 응답 수신');
+        return response.data.record[guildId];
     } catch (err) {
         console.error("❌ 메시지 ID 불러오기 실패:", err.message);
         return null;
@@ -134,40 +108,39 @@ async function getSavedMessageId(guildId) {
 }
 
 async function saveMessageId(guildId, messageId) {
+    console.log(`[💾] 메시지 ID 저장 요청: ${guildId} → ${messageId}`);
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
-            headers: {
-                'X-Master-Key': config.JSONBIN_API_KEY
-            }
+            headers: { 'X-Master-Key': config.JSONBIN_API_KEY }
         });
 
         const updatedRecord = response.data.record || {};
         updatedRecord[guildId] = messageId;
 
-        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, 
-                        { record: updatedRecord }, 
-                        {
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-Master-Key': config.JSONBIN_API_KEY
-                            }
-                        });
+        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`,
+            { record: updatedRecord },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': config.JSONBIN_API_KEY
+                }
+            });
 
-        console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
+        console.log(`✅ 메시지 ID 저장 완료 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error("❌ 메시지 ID 저장 실패:", err.message);
     }
 }
 
 
-
 async function updateBossMessage(channel, initialMessage) {
-    let guildId = channel.guild?.id || channel.guildId;
+    console.log(`[🔄] 보스 메시지 주기적 업데이트 시작`);
+    const guildId = channel.guild?.id || channel.guildId;
     bossMessages.set(guildId, initialMessage);
 
     setInterval(async () => {
         const now = new Date();
-        const bosses = getUpcomingBosses(2); // 다음 + 다다음
+        const bosses = getUpcomingBosses(2);
 
         if (bosses.length === 0) return;
 
@@ -204,19 +177,20 @@ async function updateBossMessage(channel, initialMessage) {
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
         const bossMessage = bossMessages.get(guildId);
-
         if (bossMessage) {
-            await bossMessage.edit({ embeds: [embed] }).catch(console.error);
+            await bossMessage.edit({ embeds: [embed] }).catch(err => {
+                console.error(`❌ 메시지 수정 실패: ${err.message}`);
+            });
         }
     }, 2000);
 }
 
 
-
-
 client.on('messageReactionAdd', async (reaction, user) => {
+    console.log(`[➕] 리액션 추가 감지: ${user.tag}, 이모지: ${reaction.emoji.name}`);
     const guildId = reaction.message.guild.id;
     const targetMessage = bossMessages.get(guildId);
+
     if (!targetMessage || reaction.message.id !== targetMessage.id) return;
     if (reaction.emoji.name !== '🔔') return;
     if (user.bot) return;
@@ -228,7 +202,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
         const member = await guild.members.fetch(user.id);
         let role = guild.roles.cache.find(r => r.name === '보스알림');
         if (!role) {
-            // 역할이 없으면 생성
             role = await guild.roles.create({
                 name: '보스알림',
                 mentionable: true,
@@ -243,9 +216,12 @@ client.on('messageReactionAdd', async (reaction, user) => {
     }
 });
 
+
 client.on('messageReactionRemove', async (reaction, user) => {
+    console.log(`[➖] 리액션 제거 감지: ${user.tag}`);
     const guildId = reaction.message.guild.id;
     const targetMessage = bossMessages.get(guildId);
+
     if (!targetMessage || reaction.message.id !== targetMessage.id) return;
     if (reaction.emoji.name !== '🔔') return;
     if (user.bot) return;
@@ -266,11 +242,11 @@ client.on('messageReactionRemove', async (reaction, user) => {
 });
 
 
-
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
 
     client.guilds.cache.forEach(async (guild) => {
+        console.log(`[🏠] 서버 준비 중: ${guild.name}`);
         const bossAlertChannel = guild.channels.cache.find(c => c.name === "보스알림");
         if (!bossAlertChannel) {
             console.error(`❌ '${guild.name}' 서버에서 '보스알림' 채널을 찾을 수 없습니다.`);
@@ -287,13 +263,13 @@ client.once('ready', async () => {
                 if (fetched && fetched.edit) {
                     bossMessage = fetched;
                     bossMessages.set(guild.id, bossMessage);
-                    console.log(`✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id}`);
+                    console.log(`✅ ${guild.name} 서버 메시지 불러오기 성공: ${fetched.id}`);
                 } else {
-                    console.warn(`⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.`);
+                    console.warn(`⚠️ ${guild.name} 서버에서 편집 불가능 메시지. 새로 생성`);
                 }
             }
         } catch (err) {
-            console.error(`⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, err.message);
+            console.error(`⚠️ ${guild.name} 서버 메시지 불러오기 실패:`, err.message);
         }
 
         if (!bossMessage || typeof bossMessage.edit !== 'function') {
@@ -311,58 +287,9 @@ client.once('ready', async () => {
             bossMessages.set(guild.id, bossMessage);
         }
 
-        updateBossMessage(bossAlertChannel, bossMessage); // 호출 시 메시지도 전달
-        scheduleBossAlerts(bossAlertChannel);
+        updateBossMessage(bossAlertChannel, bossMessage);
+        // scheduleBossAlerts(bossAlertChannel);  // 이 부분은 미완성이므로 주석 처리
     });
 });
 
-
-function scheduleBossAlerts(channel) {
-    for (let hour = 0; hour < 24; hour++) {
-        bossSchedule.forEach(({ hourType, minute, boss }) => {
-            if (hourType === '홀수' && hour % 2 === 0) return;
-            if (hourType === '짝수' && hour % 2 !== 0) return;
-
-            const scheduleTime = new schedule.RecurrenceRule();
-            scheduleTime.tz = 'Asia/Seoul'; // 한국 시간대 설정
-            scheduleTime.hour = hour;
-            scheduleTime.minute = minute - 1;
-
-
-            schedule.scheduleJob(scheduleTime, async () => {
-    const role = channel.guild.roles.cache.find(r => r.name === '보스알림');
-if (!role) {
-    console.warn("⚠️ '보스알림' 역할이 존재하지 않아 알림을 보낼 수 없습니다.");
-    return;
-}
-
-const embed = new EmbedBuilder()
-    .setColor(0xff0000)
-    .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
-    .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!\n\n⚠️ 이 메시지는 60초 후 삭제됩니다.`)
-    .setFooter({ text: '준비하세요!' });
-
-try {
-    const msg = await channel.send({
-        content: `${role}`, // 역할 멘션
-        embeds: [embed]
-    });
-
-    // 60초 후 삭제
-    setTimeout(() => {
-        msg.delete().catch(err => console.error("❌ 메시지 삭제 실패:", err.message));
-    }, 60 * 1000);
-} catch (err) {
-    console.error("❌ 보스 알림 메시지 전송 실패:", err.message);
-}
-
-
-    // 옵션: 채널에도 안내 메시지 보낼 수 있음
-    //channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
-});
-        });
-    }
-}
-
-
-client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
+client.login(TOKEN);
