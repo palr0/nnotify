@@ -57,23 +57,25 @@ const bossSchedule = [
 
 function getNextBoss() {
     const now = new Date();
-    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    const isCurrentHourOdd = currentHour % 2 !== 0;
 
     const candidates = [];
 
     for (let offset = 0; offset <= 2; offset++) {
-        const checkHour = now.getHours() + offset;
-        const isOddHour = checkHour % 2 !== 0;
+        const checkHour = currentHour + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            // 현재 확인 중인 시간대(checkHour)가 hourType 조건과 맞는 경우만 포함
-            if (hourType === '홀수' && !isOddHour) return;
-            if (hourType === '짝수' && isOddHour) return;
-            if (!hourType && checkHour === now.getHours() && minute <= now.getMinutes()) return;
+            // ✅ 현재 시간이 홀/짝이면 그에 맞는 보스만 포함
+            if (hourType === '홀수' && !isCurrentHourOdd) return;
+            if (hourType === '짝수' && isCurrentHourOdd) return;
+
+            // ❗ offset 0일 경우, 이미 지난 시간은 건너뛰기
+            if (offset === 0 && minute <= currentMinute) return;
 
             const totalMinutes = checkHour * 60 + minute;
-            if (totalMinutes <= currentTotalMinutes) return;
-
             candidates.push({ boss, hour: checkHour, minute, totalMinutes });
         });
     }
@@ -84,8 +86,9 @@ function getNextBoss() {
         return { boss, hour, minute };
     }
 
-    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
+    return { boss: '알 수 없음', hour: currentHour, minute: currentMinute };
 }
+
 
 
 
