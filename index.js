@@ -1,3 +1,4 @@
+
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
@@ -37,6 +38,7 @@ client.on('messageCreate', async (message) => {
         now.setHours(hour);
         now.setMinutes(minute);
         now.setSeconds(0);
+
         message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
 });
@@ -121,7 +123,7 @@ async function saveMessageId(guildId, messageId) {
                             }
                         });
 
-console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
+        console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error("❌ 메시지 ID 저장 실패:", err.message);
     }
@@ -196,9 +198,9 @@ client.on('messageReactionAdd', async (reaction, user) => {
         }
 
         await member.roles.add(role);
-        console.log(✅ ${user.tag} 알림 등록됨 및 역할 부여됨);
+        console.log(`✅ ${user.tag} 알림 등록됨 및 역할 부여됨`);
     } catch (err) {
-        console.error(❌ 역할 부여 실패: ${err.message});
+        console.error(`❌ 역할 부여 실패: ${err.message}`);
     }
 });
 
@@ -217,22 +219,22 @@ client.on('messageReactionRemove', async (reaction, user) => {
         const role = guild.roles.cache.find(r => r.name === '보스알림');
         if (role) {
             await member.roles.remove(role);
-            console.log(🔕 ${user.tag} 알림 해제됨 및 역할 제거됨);
+            console.log(`🔕 ${user.tag} 알림 해제됨 및 역할 제거됨`);
         }
     } catch (err) {
-        console.error(❌ 역할 제거 실패: ${err.message});
+        console.error(`❌ 역할 제거 실패: ${err.message}`);
     }
 });
 
 
 
 client.once('ready', async () => {
-    console.log(✅ ${client.user.tag} 봇이 온라인입니다!);
+    console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
 
     client.guilds.cache.forEach(async (guild) => {
         const bossAlertChannel = guild.channels.cache.find(c => c.name === "보스알림");
         if (!bossAlertChannel) {
-            console.error(❌ '${guild.name}' 서버에서 '보스알림' 채널을 찾을 수 없습니다.);
+            console.error(`❌ '${guild.name}' 서버에서 '보스알림' 채널을 찾을 수 없습니다.`);
             return;
         }
 
@@ -246,13 +248,13 @@ client.once('ready', async () => {
                 if (fetched && fetched.edit) {
                     bossMessage = fetched;
                     bossMessages.set(guild.id, bossMessage);
-                    console.log(✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id});
+                    console.log(`✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${fetched.id}`);
                 } else {
-                    console.warn(⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.);
+                    console.warn(`⚠️ ${guild.name} 서버에서 메시지를 불러왔지만 편집 불가능. 새로 만듭니다.`);
                 }
             }
         } catch (err) {
-            console.error(⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:, err.message);
+            console.error(`⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, err.message);
         }
 
         if (!bossMessage || typeof bossMessage.edit !== 'function') {
@@ -260,7 +262,7 @@ client.once('ready', async () => {
                 .setColor(0x0099ff)
                 .setTitle('보스 알림 받기')
                 .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-                .addFields({ name: "📢 다음 보스", value: 불러오는 중... })
+                .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
                 .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
             bossMessage = await bossAlertChannel.send({ embeds: [embed] });
@@ -290,8 +292,8 @@ function scheduleBossAlerts(channel) {
             schedule.scheduleJob(scheduleTime, async () => {
                 const embed = new EmbedBuilder()
                     .setColor(0xff0000)
-                    .setTitle(⚔️ ${boss} 등장!)
-                    .setDescription(${boss}가 곧 리젠됩니다!)
+                    .setTitle(`⚔️ ${boss} 등장!`)
+                    .setDescription(`${boss}가 곧 리젠됩니다!`)
                     .setTimestamp();
 
                 const sentMessage = await channel.send({ embeds: [embed] });
@@ -299,10 +301,10 @@ function scheduleBossAlerts(channel) {
                 // 알림 역할이 존재하면 멘션
                 const role = channel.guild.roles.cache.find(r => r.name === '보스알림');
                 if (role) {
-                    channel.send(${role});
+                    channel.send(`${role}`);
                 }
 
-                console.log(🔔 ${boss} 알림 전송 완료);
+                console.log(`🔔 ${boss} 알림 전송 완료`);
             });
         });
     }
