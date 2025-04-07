@@ -68,8 +68,10 @@ function getNextBoss() {
             const totalMinutes = checkHour * 60 + minute;
             if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
 
-            if (hourType === '홀수' && checkHour % 2 === 0) return;
-            if (hourType === '짝수' && checkHour % 2 !== 0) return;
+            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour; // 알림 기준 시간
+            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+
 
             candidates.push({ boss, hour: checkHour, minute, totalMinutes });
         });
@@ -83,7 +85,6 @@ function getNextBoss() {
 
     return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
 }
-
 
 
 
@@ -284,31 +285,45 @@ function scheduleBossAlerts(channel) {
             if (hourType === '짝수' && hour % 2 !== 0) return;
 
             const scheduleTime = new schedule.RecurrenceRule();
-            scheduleTime.tz = 'Asia/Seoul';
+            scheduleTime.tz = 'Asia/Seoul'; // 한국 시간대 설정
             scheduleTime.hour = hour;
-            scheduleTime.minute = minute;
+            scheduleTime.minute = minute - 1;
+
 
             schedule.scheduleJob(scheduleTime, async () => {
-                const embed = new EmbedBuilder()
-                    .setColor(0xff0000)
-                    .setTitle(`⚔️ ${boss} 등장!`)
-                    .setDescription(`${boss}가 곧 리젠됩니다!`)
-                    .setTimestamp();
+    const role = channel.guild.roles.cache.find(r => r.name === '보스알림');
+if (!role) {
+    console.warn("⚠️ '보스알림' 역할이 존재하지 않아 알림을 보낼 수 없습니다.");
+    return;
+}
 
-                const sentMessage = await channel.send({ embeds: [embed] });
+const embed = new EmbedBuilder()
+    .setColor(0xff0000)
+    .setTitle('⚔️ 보스 리스폰 알림 ⚔️')
+    .setDescription(`**${hour}시 ${minute}분**\n**${boss}** 보스 리스폰 1분 전!\n\n⚠️ 이 메시지는 60초 후 삭제됩니다.`)
+    .setFooter({ text: '준비하세요!' });
 
-                // 알림 역할이 존재하면 멘션
-                const role = channel.guild.roles.cache.find(r => r.name === '보스알림');
-                if (role) {
-                    channel.send(`${role}`);
-                }
+try {
+    const msg = await channel.send({
+        content: `${role}`, // 역할 멘션
+        embeds: [embed]
+    });
 
-                console.log(`🔔 ${boss} 알림 전송 완료`);
-            });
+    // 60초 후 삭제
+    setTimeout(() => {
+        msg.delete().catch(err => console.error("❌ 메시지 삭제 실패:", err.message));
+    }, 60 * 1000);
+} catch (err) {
+    console.error("❌ 보스 알림 메시지 전송 실패:", err.message);
+}
+
+
+    // 옵션: 채널에도 안내 메시지 보낼 수 있음
+    //channel.send({ content: `📢 **${boss}** 보스 리젠 1분 전입니다! (이모지 누른 유저에게만 알림 전송됨)` });
+});
         });
     }
 }
-
 
 
 client.login(TOKEN).catch(err => console.error("❌ ERROR: 디스코드 봇 로그인 실패!", err));
