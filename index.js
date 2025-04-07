@@ -57,36 +57,31 @@ const bossSchedule = [
     { hourType: '홀수', minute: 50, boss: '세르칸' }
 ];
 
-function getNextBoss() {
+function getUpcomingBosses(count = 2) {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
     const candidates = [];
 
-    for (let offset = 0; offset <= 2; offset++) {
+    for (let offset = 0; offset <= 6; offset++) { // 최대 6시간 탐색 (예외적 상황 방지)
         const checkHour = now.getHours() + offset;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
             const totalMinutes = checkHour * 60 + minute;
-            if (totalMinutes <= currentTotalMinutes) return; // 이미 지난 시간은 제외
+            if (totalMinutes <= currentTotalMinutes) return;
 
-            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour; // 알림 기준 시간
+            const adjustedHour = (minute - 1 < 0) ? checkHour - 1 : checkHour;
             if (hourType === '홀수' && adjustedHour % 2 === 0) return;
             if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
 
-
-            candidates.push({ boss, hour: checkHour, minute, totalMinutes });
+            candidates.push({ boss, hour: checkHour % 24, minute, totalMinutes });
         });
     }
 
-    if (candidates.length > 0) {
-        candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
-        const { boss, hour, minute } = candidates[0];
-        return { boss, hour, minute };
-    }
-
-    return { boss: '알 수 없음', hour: now.getHours(), minute: now.getMinutes() };
+    candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
+    return candidates.slice(0, count); // count 개수만 반환
 }
+
 
 
 function getNextTwoBosses() {
@@ -163,11 +158,14 @@ async function updateBossMessage(channel, initialMessage) {
 
     setInterval(async () => {
         const now = new Date();
-        const [nextBoss, nextNextBoss] = getNextTwoBosses();
+        const bosses = getUpcomingBosses(2); // 다음 + 다다음
 
-        if (!nextBoss) return;
+        if (bosses.length === 0) return;
 
-        let remainingMinutes = nextBoss.minute - now.getMinutes();
+        const { boss: nextBoss, hour, minute } = bosses[0];
+        const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
+
+        let remainingMinutes = minute - now.getMinutes();
         let remainingSeconds = 60 - now.getSeconds();
 
         if (remainingSeconds === 60) {
@@ -175,10 +173,7 @@ async function updateBossMessage(channel, initialMessage) {
             remainingSeconds = 0;
         }
 
-        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) {
-            return;
-        }
-
+        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) return;
         remainingMinutes = Math.max(0, remainingMinutes - 1);
 
         const embed = new EmbedBuilder()
@@ -188,21 +183,19 @@ async function updateBossMessage(channel, initialMessage) {
             .addFields(
                 {
                     name: "📢 다음 보스",
-                    value: `**${nextBoss.boss}**\n남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`
+                    value: `**${nextBoss}**\n남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`,
+                    inline: false
                 },
-                nextNextBoss
-                    ? {
-                        name: "🕓 다음 다음 보스",
-                        value: `**${nextNextBoss.boss}**\n등장 예정: ${nextNextBoss.hour}시 ${nextNextBoss.minute}분`
-                    }
-                    : {
-                        name: "🕓 다음 다음 보스",
-                        value: "정보 없음"
-                    }
+                {
+                    name: "⏭️ 그 다음 보스",
+                    value: `**${nextNextBoss.boss}** (${nextNextBoss.hour}시 ${nextNextBoss.minute}분)`,
+                    inline: false
+                }
             )
             .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
         const bossMessage = bossMessages.get(guildId);
+
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
