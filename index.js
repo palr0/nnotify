@@ -164,49 +164,50 @@ async function updateBossMessage(channel, initialMessage) {
     bossMessages.set(guildId, initialMessage);
 
     setInterval(async () => {
-        const now = new Date();
-        const bosses = getUpcomingBosses(2); // 다음 + 다다음
+    const now = new Date();
+    const bosses = getUpcomingBosses(2);
 
-        if (bosses.length === 0) return;
+    if (bosses.length === 0) return;
 
-        const { boss: nextBoss, hour, minute } = bosses[0];
-        const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
+    const { boss: nextBoss, hour, minute } = bosses[0];
+    const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
 
-        let remainingMinutes = minute - now.getMinutes();
-        let remainingSeconds = 60 - now.getSeconds();
+    const targetTime = new Date(now);
+    targetTime.setHours(hour);
+    targetTime.setMinutes(minute);
+    targetTime.setSeconds(0);
+    targetTime.setMilliseconds(0);
 
-        if (remainingSeconds === 60) {
-            remainingMinutes++;
-            remainingSeconds = 0;
-        }
+    const diffMs = targetTime.getTime() - now.getTime();
+    const remainingTotalSec = Math.max(0, Math.floor(diffMs / 1000));
+    const remainingMinutes = Math.floor(remainingTotalSec / 60);
+    const remainingSeconds = remainingTotalSec % 60;
 
-        if (remainingMinutes < 0 || (remainingMinutes === 0 && remainingSeconds <= 0)) return;
-        remainingMinutes = Math.max(0, remainingMinutes - 1);
+    const embed = new EmbedBuilder()
+        .setColor(0x0099ff)
+        .setTitle('보스 알림 받기')
+        .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+        .addFields(
+            {
+                name: "📢 다음 보스",
+                value: `**${nextBoss}**\n남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`,
+                inline: false
+            },
+            {
+                name: "⏭️ 그 다음 보스",
+                value: `**${nextNextBoss.boss}** (${nextNextBoss.hour}시 ${nextNextBoss.minute}분)`,
+                inline: false
+            }
+        )
+        .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
 
-        const embed = new EmbedBuilder()
-            .setColor(0x0099ff)
-            .setTitle('보스 알림 받기')
-            .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-            .addFields(
-                {
-                    name: "📢 다음 보스",
-                    value: `**${nextBoss}**\n남은 시간: **${remainingMinutes}분 ${remainingSeconds}초**`,
-                    inline: false
-                },
-                {
-                    name: "⏭️ 그 다음 보스",
-                    value: `**${nextNextBoss.boss}** (${nextNextBoss.hour}시 ${nextNextBoss.minute}분)`,
-                    inline: false
-                }
-            )
-            .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
+    const bossMessage = bossMessages.get(guildId);
 
-        const bossMessage = bossMessages.get(guildId);
+    if (bossMessage) {
+        await bossMessage.edit({ embeds: [embed] }).catch(console.error);
+    }
+}, 2000);
 
-        if (bossMessage) {
-            await bossMessage.edit({ embeds: [embed] }).catch(console.error);
-        }
-    }, 2000);
 }
 
 
