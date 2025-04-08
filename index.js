@@ -4,13 +4,18 @@ import schedule from 'node-schedule';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import cron from 'node-cron';
-import config from './config.env' assert { type: 'json' };
 import './server.js';
-dotenv.config();
 const TOKEN = process.env.TOKEN;
 const bossMessages = new Map();
 const alertUsers = new Set();
+import dotenv from 'dotenv';
+dotenv.config();
 
+const config = {
+  TOKEN: process.env.TOKEN,
+  JSONBIN_API_KEY: process.env.JSONBIN_API_KEY,
+  JSONBIN_BIN_ID: process.env.JSONBIN_BIN_ID
+};
 
 const client = new Client({
     intents: [
