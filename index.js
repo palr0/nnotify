@@ -1,7 +1,6 @@
 
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
 import schedule from 'node-schedule';
-import dotenv from 'dotenv';
 import axios from 'axios';
 import cron from 'node-cron';
 import './server.js';
