@@ -40,6 +40,26 @@ client.on('messageCreate', async (message) => {
 
         message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
+    if (message.content.startsWith('/보스 순서')) {
+    const bosses = getUpcomingBosses();
+    const now = new Date();
+
+    const description = bosses.map(({ boss, date }) => {
+        const remainingMs = date - now;
+        const remainingMin = Math.floor(remainingMs / 60000);
+        const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+        const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        return `**${boss}** - ${timeStr} (${remainingMin}분 ${remainingSec}초 후)`;
+    }).join('\n');
+
+    const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle('🕒 앞으로 등장할 보스 순서')
+        .setDescription(description || '예정된 보스가 없습니다.');
+
+    message.channel.send({ embeds: [embed] });
+}
+
 });
 
 const bossSchedule = [
