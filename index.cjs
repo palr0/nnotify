@@ -1,9 +1,9 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
-const config = require('./config.env');
+const config = require('./config.js');
 const server = require('./server.js');
 const axios = require('axios');
-require('dotenv').config({ path: './config.env' });
+require('dotenv').config({ path: './config.js' });
 const TOKEN = process.env.TOKEN;
 const bossMessages = new Map();
 const alertUsers = new Set();
