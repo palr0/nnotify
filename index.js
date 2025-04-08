@@ -1,3 +1,4 @@
+
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
@@ -58,31 +59,30 @@ const bossSchedule = [
 function getUpcomingBosses(count = 2) {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-    const upcomingBosses = [];
 
-    for (let offsetHour = 0; offsetHour <= 5; offsetHour++) {
-        const hourToCheck = now.getHours() + Math.floor((now.getMinutes() + offsetHour * 10) / 60);
-        const minuteBase = (now.getMinutes() + offsetHour * 10) % 60;
+    const possibleBosses = [];
+
+    for (let h = 0; h <= 2; h++) {
+        const checkHour = now.getHours() + h;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = hourToCheck * 60 + minute;
+            const totalMinutes = checkHour * 60 + minute;
             if (totalMinutes <= currentTotalMinutes) return;
 
-            // 필터링 조건: 시간 타입이 존재할 경우 적용
-            const adjustedHour = (minute === 0) ? hourToCheck - 1 : hourToCheck;
-            if (hourType === '홀수' && adjustedHour % 2 !== 1) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+            const adjustedHour = (minute === 0) ? checkHour - 1 : checkHour;
 
-            upcomingBosses.push({ boss, hour: hourToCheck, minute, totalMinutes });
+            if (hourType === '홀수' && adjustedHour % 2 !== 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 === 0) return;
+
+            possibleBosses.push({ boss, hour: checkHour, minute, totalMinutes });
         });
-
-        if (upcomingBosses.length >= count) break;
     }
 
-    upcomingBosses.sort((a, b) => a.totalMinutes - b.totalMinutes);
-    return upcomingBosses.slice(0, count);
-}
+    // 시간 기준으로 정렬
+    possibleBosses.sort((a, b) => a.totalMinutes - b.totalMinutes);
 
+    return possibleBosses.slice(0, count);
+}
 
 
 
