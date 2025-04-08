@@ -1,4 +1,4 @@
-// 개선된 보스 시간 계산 코드 포함 전체 코드
+// 통합된 보스 알림 봇 코드
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const schedule = require('node-schedule');
 const config = require('./config.env');
@@ -19,49 +19,7 @@ const client = new Client({
     ]
 });
 
-client.on('messageCreate', async (message) => {
-    if (message.content.startsWith('/시간 한국표준')) {
-        const now = new Date();
-        const seoulTime = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
-        message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
-    }
-
-    if (message.content.startsWith('/시간 조정')) {
-        const timeString = message.content.split(' ')[1];
-        if (!timeString || !/^([0-9]{1,2}):([0-9]{2})$/.test(timeString)) {
-            return message.channel.send('올바른 시간 형식이 아닙니다. 예: /시간 조정 15:30');
-        }
-
-        const [hour, minute] = timeString.split(':').map(Number);
-        const now = new Date();
-        now.setHours(hour);
-        now.setMinutes(minute);
-        now.setSeconds(0);
-
-        message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
-    }
-    if (message.content.startsWith('/보스 순서')) {
-    const bosses = getUpcomingBosses();
-    const now = new Date();
-
-    const description = bosses.map(({ boss, date }) => {
-        const remainingMs = date - now;
-        const remainingMin = Math.floor(remainingMs / 60000);
-        const remainingSec = Math.floor((remainingMs % 60000) / 1000);
-        const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-        return `**${boss}** - ${timeStr} (${remainingMin}분 ${remainingSec}초 후)`;
-    }).join('\n');
-
-    const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('🕒 앞으로 등장할 보스 순서')
-        .setDescription(description || '예정된 보스가 없습니다.');
-
-    message.channel.send({ embeds: [embed] });
-}
-
-});
-
+// 보스 스케줄 정의
 const bossSchedule = [
     { minute: 0, boss: '그루트킹' },
     { minute: 30, boss: '해적 선장' },
@@ -72,7 +30,8 @@ const bossSchedule = [
     { hourType: '홀수', minute: 50, boss: '세르칸' }
 ];
 
-function getUpcomingBosses() {
+// 다음 보스 순서 반환 함수
+function getUpcomingBosses(count = 5) {
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
     const possibleBosses = [];
@@ -106,10 +65,51 @@ function getUpcomingBosses() {
     }
 
     possibleBosses.sort((a, b) => a.date - b.date);
-    return possibleBosses;
+    return possibleBosses.slice(0, count);
 }
 
+client.on('messageCreate', async (message) => {
+    if (message.content.startsWith('/시간 한국표준')) {
+        const now = new Date();
+        const seoulTime = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+        message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
+    }
 
+    if (message.content.startsWith('/시간 조정')) {
+        const timeString = message.content.split(' ')[1];
+        if (!timeString || !/^([0-9]{1,2}):([0-9]{2})$/.test(timeString)) {
+            return message.channel.send('올바른 시간 형식이 아닙니다. 예: /시간 조정 15:30');
+        }
+
+        const [hour, minute] = timeString.split(':').map(Number);
+        const now = new Date();
+        now.setHours(hour);
+        now.setMinutes(minute);
+        now.setSeconds(0);
+
+        message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
+    }
+
+    if (message.content.startsWith('/보스 순서')) {
+        const bosses = getUpcomingBosses();
+        const now = new Date();
+
+        const description = bosses.map(({ boss, date }) => {
+            const remainingMs = date - now;
+            const remainingMin = Math.floor(remainingMs / 60000);
+            const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+            const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            return `**${boss}** - ${timeStr} (${remainingMin}분 ${remainingSec}초 후)`;
+        }).join('\n');
+
+        const embed = new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setTitle('🕒 앞으로 등장할 보스 순서')
+            .setDescription(description || '예정된 보스가 없습니다.');
+
+        message.channel.send({ embeds: [embed] });
+    }
+});
 
 async function getSavedMessageId(guildId) {
     try {
@@ -146,7 +146,7 @@ async function saveMessageId(guildId, messageId) {
 }
 
 async function updateBossMessage(channel, initialMessage) {
-    let guildId = channel.guild?.id || channel.guildId;
+    const guildId = channel.guild?.id || channel.guildId;
     bossMessages.set(guildId, initialMessage);
 
     setInterval(async () => {
@@ -157,20 +157,19 @@ async function updateBossMessage(channel, initialMessage) {
         const { boss: nextBoss, hour, minute } = bosses[0];
         const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
 
-        const targetTime = new Date(now); // now 기준 복사
-targetTime.setHours(hour);
-targetTime.setMinutes(minute);
-targetTime.setSeconds(0);
-targetTime.setMilliseconds(0);
+        const targetTime = new Date();
+        targetTime.setHours(hour);
+        targetTime.setMinutes(minute);
+        targetTime.setSeconds(0);
+        targetTime.setMilliseconds(0);
 
-if (targetTime < now) {
-    targetTime.setDate(targetTime.getDate() + 1); // 다음 날로 보정
-}
+        if (targetTime < now) {
+            targetTime.setDate(targetTime.getDate() + 1);
+        }
 
-const remainingTotalSec = Math.max(0, Math.floor((targetTime - now) / 1000));
-const remainingMinutes = Math.floor(remainingTotalSec / 60);
-const remainingSeconds = remainingTotalSec % 60;
-
+        const remainingTotalSec = Math.max(0, Math.floor((targetTime - now) / 1000));
+        const remainingMinutes = Math.floor(remainingTotalSec / 60);
+        const remainingSeconds = remainingTotalSec % 60;
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
@@ -254,7 +253,6 @@ client.once('ready', async () => {
             const savedMessageId = await getSavedMessageId(guild.id);
             if (savedMessageId) {
                 const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
-
                 if (fetched && fetched.edit) {
                     bossMessage = fetched;
                     bossMessages.set(guild.id, bossMessage);
@@ -270,13 +268,12 @@ client.once('ready', async () => {
                 .setColor(0x0099ff)
                 .setTitle('보스 알림 받기')
                 .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-                .addFields({ name: "📢 다음 보스", value: `불러오는 중...` })
-                .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
+                .addFields({ name: "📢 다음 보스", value: `불러오는 중...`, inline: false });
 
             bossMessage = await bossAlertChannel.send({ embeds: [embed] });
             await bossMessage.react('🔔');
-            bossMessages.set(guild.id, bossMessage);
             await saveMessageId(guild.id, bossMessage.id);
+            console.log(`✅ 새 메시지 생성 및 저장됨: ${bossMessage.id}`);
         }
 
         updateBossMessage(bossAlertChannel, bossMessage);
