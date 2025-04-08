@@ -40,28 +40,33 @@ function getUpcomingBosses(count = 5) {
         const checkHour = (now.getHours() + offsetHour) % 24;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = checkHour * 60 + minute;
-            if (offsetHour === 0 && totalMinutes <= currentTotalMinutes) return;
+    const targetHour = (now.getHours() + offsetHour) % 24;
 
-            if (hourType === '홀수' && checkHour % 2 === 0) return;
-            if (hourType === '짝수' && checkHour % 2 !== 0) return;
+    // ✔ 실제로 적용될 시간을 먼저 구성
+    const bossDate = new Date(now);
+    bossDate.setHours(targetHour);
+    bossDate.setMinutes(minute);
+    bossDate.setSeconds(0);
+    bossDate.setMilliseconds(0);
 
-            const bossDate = new Date(now);
-            bossDate.setHours(checkHour);
-            bossDate.setMinutes(minute);
-            bossDate.setSeconds(0);
-            bossDate.setMilliseconds(0);
+    // ❗ 그 시간의 홀짝 여부로 hourType 검사
+    if (hourType === '홀수' && bossDate.getHours() % 2 === 0) return;
+    if (hourType === '짝수' && bossDate.getHours() % 2 !== 0) return;
 
-            if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
+    const totalMinutes = bossDate.getHours() * 60 + bossDate.getMinutes();
+    if (offsetHour === 0 && totalMinutes <= currentTotalMinutes) return;
 
-            possibleBosses.push({
-                boss,
-                hour: checkHour,
-                minute,
-                date: bossDate,
-                totalMinutes: bossDate.getHours() * 60 + bossDate.getMinutes(),
-            });
-        });
+    if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
+
+    possibleBosses.push({
+        boss,
+        hour: bossDate.getHours(),
+        minute: bossDate.getMinutes(),
+        date: bossDate,
+        totalMinutes,
+    });
+});
+
     }
 
     possibleBosses.sort((a, b) => a.date - b.date);
