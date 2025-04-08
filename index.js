@@ -44,9 +44,9 @@ client.on('messageCreate', async (message) => {
     const now = new Date();
 
     const description = bosses.map(({ boss, date }) => {
-        const remainingMs = date - now;
-        const remainingMin = Math.floor(remainingMs / 60000);
-        const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+        const remainingMs = boss.date - now;
+        const minutes = Math.floor(remainingMs / 60000);
+        const seconds = Math.floor((remainingMs % 60000) / 1000);
         const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
         return `**${boss}** - ${timeStr} (${remainingMin}분 ${remainingSec}초 후)`;
     }).join('\n');
@@ -61,52 +61,39 @@ client.on('messageCreate', async (message) => {
 
 });
 
-const bossSchedule = [
-    { minute: 0, boss: '그루트킹' },
-    { minute: 30, boss: '해적 선장' },
-    { hourType: '홀수', minute: 10, boss: '아절 브루트' },
-    { hourType: '짝수', minute: 10, boss: '위더' },
-    { hourType: '홀수', minute: 40, boss: '쿵푸' },
-    { hourType: '짝수', minute: 40, boss: '에이트' },
-    { hourType: '홀수', minute: 50, boss: '세르칸' }
+const dailyBossSchedule = [
+    { time: "00:00", boss: "그루트킹" },
+    { time: "00:30", boss: "해적 선장" },
+    { time: "01:10", boss: "아절 브루트" },
+    { time: "02:10", boss: "위더" },
+    { time: "01:40", boss: "쿵푸" },
+    { time: "02:40", boss: "에이트" },
+    { time: "01:50", boss: "세르칸" },
+    // 필요한 시간들을 매일 반복될 수 있게 고정 시각으로 추가
 ];
 
-function getUpcomingBosses() {
+
+function getUpcomingBosses(count = 2) {
     const now = new Date();
-    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-    const possibleBosses = [];
+    const upcoming = [];
 
-    for (let offsetHour = 0; offsetHour <= 6; offsetHour++) {
-        const checkHour = (now.getHours() + offsetHour) % 24;
+    for (let i = 0; i < dailyBossSchedule.length; i++) {
+        const { time, boss } = dailyBossSchedule[i];
+        const [hour, minute] = time.split(':').map(Number);
 
-        bossSchedule.forEach(({ hourType, minute, boss }) => {
-            const totalMinutes = checkHour * 60 + minute;
-            if (offsetHour === 0 && totalMinutes <= currentTotalMinutes) return;
+        const bossTime = new Date(now);
+        bossTime.setHours(hour, minute, 0, 0);
+        if (bossTime < now) {
+            bossTime.setDate(bossTime.getDate() + 1); // 이미 지난 시간이면 내일로
+        }
 
-            if (hourType === '홀수' && checkHour % 2 === 0) return;
-            if (hourType === '짝수' && checkHour % 2 !== 0) return;
-
-            const bossDate = new Date(now);
-            bossDate.setHours(checkHour);
-            bossDate.setMinutes(minute);
-            bossDate.setSeconds(0);
-            bossDate.setMilliseconds(0);
-
-            if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
-
-            possibleBosses.push({
-                boss,
-                hour: checkHour,
-                minute,
-                date: bossDate,
-                totalMinutes: bossDate.getHours() * 60 + bossDate.getMinutes(),
-            });
-        });
+        upcoming.push({ boss, date: bossTime });
     }
 
-    possibleBosses.sort((a, b) => a.date - b.date);
-    return possibleBosses;
+    upcoming.sort((a, b) => a.date - b.date);
+    return upcoming.slice(0, count);
 }
+
 
 
 
