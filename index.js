@@ -77,20 +77,15 @@ function getUpcomingBosses() {
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
     const possibleBosses = [];
 
-    // 최대 6시간 뒤까지 확인 (보스가 약 10분~30분마다 등장하므로 충분함)
     for (let offsetHour = 0; offsetHour <= 6; offsetHour++) {
-        const checkHour = (now.getHours() + offsetHour) % 24;  // 24시간 순환
+        const checkHour = (now.getHours() + offsetHour) % 24;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
             const totalMinutes = checkHour * 60 + minute;
-
-            // 현재 시간 이후만 추가
             if (offsetHour === 0 && totalMinutes <= currentTotalMinutes) return;
 
-            const adjustedHour = minute === 0 ? checkHour - 1 : checkHour;
-
-            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+            if (hourType === '홀수' && checkHour % 2 === 0) return;
+            if (hourType === '짝수' && checkHour % 2 !== 0) return;
 
             const bossDate = new Date(now);
             bossDate.setHours(checkHour);
@@ -98,10 +93,7 @@ function getUpcomingBosses() {
             bossDate.setSeconds(0);
             bossDate.setMilliseconds(0);
 
-            // 자정 넘어가면 다음 날로 보정
-            if (bossDate < now) {
-                bossDate.setDate(bossDate.getDate() + 1);
-            }
+            if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
 
             possibleBosses.push({
                 boss,
@@ -113,10 +105,10 @@ function getUpcomingBosses() {
         });
     }
 
-    // 등장 시간 순 정렬
     possibleBosses.sort((a, b) => a.date - b.date);
     return possibleBosses;
 }
+
 
 
 async function getSavedMessageId(guildId) {
