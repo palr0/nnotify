@@ -123,12 +123,20 @@ async function updateBossMessage(channel, initialMessage) {
         const { boss: nextBoss, hour, minute } = bosses[0];
         const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
 
-        const targetTime = new Date();
-        targetTime.setHours(hour, minute, 0, 0);
+        const targetTime = new Date(now); // now 기준 복사
+targetTime.setHours(hour);
+targetTime.setMinutes(minute);
+targetTime.setSeconds(0);
+targetTime.setMilliseconds(0);
 
-        const remainingTotalSec = Math.max(0, Math.floor((targetTime - now) / 1000));
-        const remainingMinutes = Math.floor(remainingTotalSec / 60);
-        const remainingSeconds = remainingTotalSec % 60;
+if (targetTime < now) {
+    targetTime.setDate(targetTime.getDate() + 1); // 다음 날로 보정
+}
+
+const remainingTotalSec = Math.max(0, Math.floor((targetTime - now) / 1000));
+const remainingMinutes = Math.floor(remainingTotalSec / 60);
+const remainingSeconds = remainingTotalSec % 60;
+
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
