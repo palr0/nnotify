@@ -70,8 +70,8 @@ function getUpcomingBosses(count = 2) {
 
             const adjustedHour = (minute === 0) ? checkHour - 1 : checkHour;
 
-            if (hourType === '홀수' && adjustedHour % 2 === 0) return;
-            if (hourType === '짝수' && adjustedHour % 2 !== 0) return;
+            if (hourType === '홀수' && adjustedHour % 2 !== 0) return;
+            if (hourType === '짝수' && adjustedHour % 2 === 0) return;
 
             possibleBosses.push({ boss, hour: checkHour, minute, totalMinutes });
         });
