@@ -1,20 +1,12 @@
-
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
-import schedule from 'node-schedule';
-import axios from 'axios';
-import cron from 'node-cron';
-import './server.js';
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const schedule = require('node-schedule');
+const config = require('./config.env');
+const server = require('./server.js');
+const axios = require('axios');
+require('dotenv').config({ path: './config.env' });
 const TOKEN = process.env.TOKEN;
 const bossMessages = new Map();
 const alertUsers = new Set();
-import dotenv from 'dotenv';
-dotenv.config();
-
-const config = {
-  TOKEN: process.env.TOKEN,
-  JSONBIN_API_KEY: process.env.JSONBIN_API_KEY,
-  JSONBIN_BIN_ID: process.env.JSONBIN_BIN_ID
-};
 
 const client = new Client({
     intents: [
@@ -153,11 +145,10 @@ async function saveMessageId(guildId, messageId) {
 }
 
 async function updateBossMessage(channel, initialMessage) {
-    const guildId = channel.guild?.id || channel.guildId;
+    let guildId = channel.guild?.id || channel.guildId;
     bossMessages.set(guildId, initialMessage);
 
-    // node-cron을 이용한 2초 간격 업데이트 (주의: 너무 짧은 주기는 권장하지 않음)
-    cron.schedule('*/2 * * * * *', async () => {
+    setInterval(async () => {
         const now = new Date();
         const bosses = getUpcomingBosses(2);
         if (bosses.length === 0) return;
@@ -165,17 +156,20 @@ async function updateBossMessage(channel, initialMessage) {
         const { boss: nextBoss, hour, minute } = bosses[0];
         const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
 
-        const targetTime = new Date(now);
-        targetTime.setHours(hour);
-        targetTime.setMinutes(minute);
-        targetTime.setSeconds(0);
-        targetTime.setMilliseconds(0);
+        const targetTime = new Date(now); // now 기준 복사
+targetTime.setHours(hour);
+targetTime.setMinutes(minute);
+targetTime.setSeconds(0);
+targetTime.setMilliseconds(0);
 
-        if (targetTime < now) targetTime.setDate(targetTime.getDate() + 1);
+if (targetTime < now) {
+    targetTime.setDate(targetTime.getDate() + 1); // 다음 날로 보정
+}
 
-        const remainingTotalSec = Math.max(0, Math.floor((targetTime - now) / 1000));
-        const remainingMinutes = Math.floor(remainingTotalSec / 60);
-        const remainingSeconds = remainingTotalSec % 60;
+const remainingTotalSec = Math.max(0, Math.floor((targetTime - now) / 1000));
+const remainingMinutes = Math.floor(remainingTotalSec / 60);
+const remainingSeconds = remainingTotalSec % 60;
+
 
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
@@ -191,7 +185,7 @@ async function updateBossMessage(channel, initialMessage) {
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    });
+    }, 2000);
 }
 
 client.on('messageReactionAdd', async (reaction, user) => {
