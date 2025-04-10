@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix='/', intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 BOSS_SCHEDULE = {
     (0, 0): '그루트킹', (0, 30): '해적 선장',
