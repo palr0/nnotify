@@ -1,6 +1,6 @@
 import discord, asyncio, datetime, aiohttp, os
 from discord.ext import commands, tasks
-from discord import app_commands
+from discord.app_commands import CommandTree
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
 intents = discord.Intents.default()
@@ -10,8 +10,7 @@ intents.members = True
 intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-TREE = bot.tree
-GUILD_ID = YOUR_GUILD_ID_HERE  # 숫자로 된 디스코드 서버 ID 입력
+TREE = CommandTree(bot)
 
 BOSS_CHANNEL_NAME = "보스알림"
 ROLE_NAME = "보스알림"
@@ -28,7 +27,7 @@ BOSS_SCHEDULE = {
 async def on_ready():
     print(f"Logged in as {bot.user}")
     try:
-        synced = await TREE.sync(guild=discord.Object(id=GUILD_ID))
+        synced = await TREE.sync()  # 글로벌 커맨드 등록
         print(f"Slash commands synced: {len(synced)}")
     except Exception as e:
         print(f"Error syncing commands: {e}")
@@ -51,7 +50,7 @@ async def update_jsonbin_data(data):
         async with session.put(f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}", headers=headers, json=data) as r:
             return await r.json()
 
-@TREE.command(name="알림", description="보스알림 메세지를 생성하거나 업데이트합니다.", guild=discord.Object(id=GUILD_ID))
+@TREE.command(name="알림", description="보스알림 메세지를 생성하거나 업데이트합니다.")
 async def 알림(interaction: discord.Interaction):
     await interaction.response.defer()
 
