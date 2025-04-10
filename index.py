@@ -23,6 +23,16 @@ BOSS_SCHEDULE = {
     "even_hours": {10: "위더", 40: "에이트"}
 }
 
+BOSS_LOCATIONS = {
+    "그루트킹": "1-5",
+    "해적 선장": "2-5",
+    "아절 브루트": "3-5",
+    "위더": "4-5",
+    "쿵푸": "5-5",
+    "에이트": "6-5",
+    "세르칸": "7-4"
+}
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
@@ -32,6 +42,7 @@ async def on_ready():
     except Exception as e:
         print(f"Error syncing commands: {e}")
     schedule_alerts.start()
+    update_alert_message.start()
     start_webserver()
 
 async def get_jsonbin_data():
@@ -62,7 +73,7 @@ async def 알림(interaction: discord.Interaction):
     data = await get_jsonbin_data()
     msg_id = data.get(MESSAGE_KEY)
 
-    content = "🔔 이 메시지에 반응하면 '보스알림' 역할이 부여됩니다."
+    content = "🔔 이 메시지에 반응하면 '보스알림' 역할이 부여됩니다.\n\n(보스 정보는 아래에 실시간으로 갱신됩니다.)"
 
     if msg_id:
         try:
@@ -140,13 +151,61 @@ async def schedule_alerts():
             boss_name = BOSS_SCHEDULE["even_hours"][next_min]
 
         if boss_name:
+            location = BOSS_LOCATIONS.get(boss_name, "알 수 없음")
             for guild in bot.guilds:
                 role = discord.utils.get(guild.roles, name=ROLE_NAME)
                 channel = discord.utils.get(guild.text_channels, name=BOSS_CHANNEL_NAME)
                 if role and channel:
-                    msg = await channel.send(f"{role.mention} ⏰ **{boss_name}** 1분 후 스폰됩니다!")
+                    msg = await channel.send(
+                        f"{role.mention} ⏰ **[{location}] {boss_name}** 1분 후 스폰됩니다!\n> ⏳ *이 메시지는 1분 후 자동 삭제됩니다.*"
+                    )
                     await asyncio.sleep(60)
                     await msg.delete()
+
+@tasks.loop(seconds=1)
+async def update_alert_message():
+    now = datetime.datetime.now()
+
+    upcoming_bosses = []
+    for min_offset in range(1, 60):
+        check_time = now + datetime.timedelta(minutes=min_offset)
+        h = check_time.hour
+        m = check_time.minute
+        name = None
+        if m in BOSS_SCHEDULE["every_hour"]:
+            name = BOSS_SCHEDULE["every_hour"][m]
+        elif h % 2 == 1 and m in BOSS_SCHEDULE["odd_hours"]:
+            name = BOSS_SCHEDULE["odd_hours"][m]
+        elif h % 2 == 0 and m in BOSS_SCHEDULE["even_hours"]:
+            name = BOSS_SCHEDULE["even_hours"][m]
+        if name:
+            time_str = f"{check_time.hour:02d}:{check_time.minute:02d}"
+            loc = BOSS_LOCATIONS.get(name, "?-?")
+            upcoming_bosses.append((name, loc, time_str))
+
+    if not upcoming_bosses:
+        boss_info = "예정된 보스가 없습니다."
+    else:
+        boss_info = "\n".join([f"**[{loc}] {name}** - {t} 등장 예정" for name, loc, t in upcoming_bosses])
+
+    content = (
+        "🔔 이 메시지에 반응하면 '보스알림' 역할이 부여됩니다.\n\n"
+        f"🕒 **보스 시간표** (실시간 갱신 중)\n{boss_info}"
+    )
+
+    for guild in bot.guilds:
+        channel = discord.utils.get(guild.text_channels, name=BOSS_CHANNEL_NAME)
+        if not channel:
+            continue
+        data = await get_jsonbin_data()
+        msg_id = data.get(MESSAGE_KEY)
+        if not msg_id:
+            continue
+        try:
+            msg = await channel.fetch_message(int(msg_id))
+            await msg.edit(content=content)
+        except:
+            pass
 
 def start_webserver():
     from aiohttp import web
