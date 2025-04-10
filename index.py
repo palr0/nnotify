@@ -1,6 +1,5 @@
 import discord, asyncio, datetime, aiohttp, os
 from discord.ext import commands, tasks
-from discord.app_commands import CommandTree
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
 intents = discord.Intents.default()
@@ -10,7 +9,7 @@ intents.members = True
 intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-TREE = CommandTree(bot)
+TREE = bot.tree
 
 BOSS_CHANNEL_NAME = "보스알림"
 ROLE_NAME = "보스알림"
