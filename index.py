@@ -1,5 +1,6 @@
 import discord, asyncio, datetime, aiohttp, os
 from discord.ext import commands, tasks
+from discord import app_commands
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
 intents = discord.Intents.default()
@@ -8,7 +9,7 @@ intents.guilds = True
 intents.members = True
 intents.reactions = True
 
-bot = discord.Bot(intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 TREE = bot.tree
 
 BOSS_CHANNEL_NAME = "보스알림"
@@ -26,7 +27,7 @@ BOSS_SCHEDULE = {
 async def on_ready():
     print(f"Logged in as {bot.user}")
     try:
-        synced = await TREE.sync()  # 글로벌 커맨드 등록
+        synced = await bot.tree.sync()
         print(f"Slash commands synced: {len(synced)}")
     except Exception as e:
         print(f"Error syncing commands: {e}")
@@ -49,7 +50,7 @@ async def update_jsonbin_data(data):
         async with session.put(f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}", headers=headers, json=data) as r:
             return await r.json()
 
-@TREE.command(name="알림", description="보스알림 메세지를 생성하거나 업데이트합니다.")
+@app_commands.command(name="알림", description="보스알림 메세지를 생성하거나 업데이트합니다.")
 async def 알림(interaction: discord.Interaction):
     await interaction.response.defer()
 
@@ -80,6 +81,8 @@ async def 알림(interaction: discord.Interaction):
         data[MESSAGE_KEY] = str(new_msg.id)
         await update_jsonbin_data(data)
         await interaction.followup.send("알림 메시지를 생성했어요.")
+
+bot.tree.add_command(알림)
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -127,7 +130,7 @@ async def schedule_alerts():
     hour = now.hour
 
     boss_name = None
-    if minute == 59 or minute == 29 or minute == 9 or minute == 39 or minute == 49:  # 1분 전 감지
+    if minute in [59, 29, 9, 39, 49]:  # 1분 전 감지
         next_min = (minute + 1) % 60
         if next_min in BOSS_SCHEDULE["every_hour"]:
             boss_name = BOSS_SCHEDULE["every_hour"][next_min]
@@ -145,7 +148,6 @@ async def schedule_alerts():
                     await asyncio.sleep(60)
                     await msg.delete()
 
-# 더미 웹서버
 def start_webserver():
     from aiohttp import web
 
