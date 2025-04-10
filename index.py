@@ -1,9 +1,6 @@
 import discord, asyncio, datetime, aiohttp
 from discord.ext import commands, tasks
-
-TOKEN = 'YOUR_DISCORD_BOT_TOKEN'
-JSONBIN_ID = 'YOUR_JSONBIN_ID'
-JSONBIN_SECRET = 'YOUR_JSONBIN_SECRET'
+from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='/', intents=intents)
@@ -15,8 +12,8 @@ BOSS_SCHEDULE = {
 }
 
 async def get_or_update_jsonbin(data=None):
-    url = f"https://api.jsonbin.io/v3/b/{JSONBIN_ID}"
-    headers = {'X-Master-Key': JSONBIN_SECRET, 'Content-Type': 'application/json'}
+    url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
+    headers = {'X-Master-Key': JSONBIN_API_KEY, 'Content-Type': 'application/json'}
     async with aiohttp.ClientSession() as session:
         if data:
             async with session.put(url, headers=headers, json=data) as r: return await r.json()
@@ -34,7 +31,8 @@ async def 알림(ctx, 옵션: str):
         try:
             msg = await ctx.channel.fetch_message(int(msg_id))
             await msg.edit(content=content)
-        except: msg = await ctx.channel.send(content)
+        except:
+            msg = await ctx.channel.send(content)
     else:
         msg = await ctx.channel.send(content)
     await get_or_update_jsonbin({"message_id": str(msg.id)})
