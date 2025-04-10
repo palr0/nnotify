@@ -8,7 +8,7 @@ intents.guilds = True
 intents.members = True
 intents.reactions = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = discord.Bot(intents=intents)
 TREE = bot.tree
 
 BOSS_CHANNEL_NAME = "보스알림"
