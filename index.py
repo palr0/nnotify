@@ -1,70 +1,86 @@
 import discord, asyncio, datetime, aiohttp
 from discord.ext import commands, tasks
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
+from boss_schedule import boss_schedule
 
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.reactions = True
+intents.members = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-BOSS_SCHEDULE = {
-    (0, 0): '그루트킹', (0, 30): '해적 선장',
-    (1, 10): '아절 브루트', (1, 40): '쿵푸', (1, 50): '세르칸',
-    (2, 10): '위더', (2, 40): '에이트'
-}
-
-async def get_or_update_jsonbin(data=None):
-    url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
-    headers = {'X-Master-Key': JSONBIN_API_KEY, 'Content-Type': 'application/json'}
-    async with aiohttp.ClientSession() as session:
-        if data:
-            async with session.put(url, headers=headers, json=data) as r: return await r.json()
-        else:
-            async with session.get(url, headers=headers) as r: return (await r.json())['record']
-
-@bot.slash_command(name="알림", description="보스 알림 메시지를 재시작합니다.")
-async def 알림(ctx, 옵션: str):
-    if ctx.channel.name != "보스알림" or 옵션 != "재시작": return
-    await ctx.defer()
-    data = await get_or_update_jsonbin()
-    msg_id = data.get("message_id")
-    content = "👑 보스 알림에 참여하려면 이모지를 눌러주세요!"
-    if msg_id:
-        try:
-            msg = await ctx.channel.fetch_message(int(msg_id))
-            await msg.edit(content=content)
-        except:
-            msg = await ctx.channel.send(content)
-    else:
-        msg = await ctx.channel.send(content)
-    await get_or_update_jsonbin({"message_id": str(msg.id)})
-    await msg.add_reaction("👑")
-
-@bot.event
-async def on_raw_reaction_add(payload):
-    if payload.emoji.name != "👑": return
-    guild = bot.get_guild(payload.guild_id)
-    role = discord.utils.get(guild.roles, name="보스알림")
-    member = guild.get_member(payload.user_id)
-    if role and member: await member.add_roles(role)
-
-@tasks.loop(seconds=60)
-async def boss_notifier():
-    now = datetime.datetime.now()
-    h, m = now.hour, now.minute
-    boss = None
-    if (h % 2, m) in BOSS_SCHEDULE:
-        boss = BOSS_SCHEDULE[(h % 2, m)]
-    if boss:
-        for guild in bot.guilds:
-            role = discord.utils.get(guild.roles, name="보스알림")
-            channel = discord.utils.get(guild.text_channels, name="보스알림")
-            if role and channel:
-                msg = await channel.send(f"{role.mention} ⏰ `{boss}` 출현!")
-                await asyncio.sleep(60)
-                await msg.delete()
+CHANNEL_NAME = "보스알림"
+ROLE_NAME = "보스알림"
 
 @bot.event
 async def on_ready():
-    boss_notifier.start()
-    print(f"봇 시작됨: {bot.user}")
+    print(f"Logged in as {bot.user}")
+    boss_alert.start()
 
-bot.run(TOKEN)
+@bot.slash_command(name="알림")
+async def send_alert_command(ctx):
+    if ctx.channel.name != CHANNEL_NAME:
+        await ctx.respond("이 명령어는 보스알림 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+
+    await ctx.defer()
+    message_data = await get_jsonbin_message()
+
+    if message_data:
+        try:
+            msg = await ctx.channel.fetch_message(message_data["message_id"])
+            await msg.edit(content="🛎️ 보스 알림을 받고 싶으면 이 메시지에 이모지를 눌러주세요!")
+            await ctx.respond("기존 메시지를 수정했어요!", ephemeral=True)
+        except:
+            msg = await ctx.channel.send("🛎️ 보스 알림을 받고 싶으면 이 메시지에 이모지를 눌러주세요!")
+            await update_jsonbin_message(msg.id)
+            await ctx.respond("새 메시지를 생성했어요!", ephemeral=True)
+    else:
+        msg = await ctx.channel.send("🛎️ 보스 알림을 받고 싶으면 이 메시지에 이모지를 눌러주세요!")
+        await update_jsonbin_message(msg.id)
+        await ctx.respond("메시지를 생성했어요!", ephemeral=True)
+
+    await msg.add_reaction("🔔")
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.emoji.name != "🔔":
+        return
+
+    guild = bot.get_guild(payload.guild_id)
+    role = discord.utils.get(guild.roles, name=ROLE_NAME)
+    if not role:
+        role = await guild.create_role(name=ROLE_NAME)
+
+    member = guild.get_member(payload.user_id)
+    if member and role not in member.roles:
+        await member.add_roles(role)
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    if payload.emoji.name != "🔔":
+        return
+
+    guild = bot.get_guild(payload.guild_id)
+    role = discord.utils.get(guild.roles, name=ROLE_NAME)
+    member = guild.get_member(payload.user_id)
+    if member and role in member.roles:
+        await member.remove_roles(role)
+
+def is_boss_time(now):
+    hour = now.hour
+    minute = now.minute
+    minute_str = f"{minute:02d}"
+    
+    if minute_str in ["00", "30"]:
+        return boss_schedule.get(f"{hour:02d}:{minute_str}")
+    elif hour % 2 == 1:  # 홀수 시
+        return boss_schedule.get(f"홀수:{minute_str}")
+    elif hour % 2 == 0:  # 짝수 시
+        return boss_schedule.get(f"짝수:{minute_str}")
+    return None
+
+@tasks.loop(seconds=30)
+async def boss_alert():
+    now = datetime.datetime.now()
+    boss_name = is_boss_time(now + datetime.timedelta(minutes=1))
