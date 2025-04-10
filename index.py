@@ -1,82 +1,101 @@
-import discord, asyncio, datetime, aiohttp
+import discord, asyncio, datetime, aiohttp, os
 from discord.ext import commands, tasks
-from flask import Flask
-import threading
+from discord import app_commands
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.reactions = True
+intents.guilds = True
 intents.members = True
+intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-CHANNEL_NAME = "보스알림"
-ROLE_NAME = "보스알림"
-MESSAGE_ID_KEY = "message_id"
+TREE = bot.tree
+GUILD_ID = YOUR_GUILD_ID_HERE  # 숫자로 된 디스코드 서버 ID 입력
 
-headers = {
-    "X-Master-Key": JSONBIN_API_KEY,
-    "Content-Type": "application/json"
+BOSS_CHANNEL_NAME = "보스알림"
+ROLE_NAME = "보스알림"
+BELL_EMOJI = "🔔"
+MESSAGE_KEY = "boss_alert_message_id"
+
+BOSS_SCHEDULE = {
+    "every_hour": {0: "그루트킹", 30: "해적 선장"},
+    "odd_hours": {10: "아절 브루트", 40: "쿵푸", 50: "세르칸"},
+    "even_hours": {10: "위더", 40: "에이트"}
 }
 
-# 🔹 더미 웹서버 (Render용)
-app = Flask(__name__)
-@app.route("/")
-def home():
-    return "Bot is alive!"
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+    try:
+        synced = await TREE.sync(guild=discord.Object(id=GUILD_ID))
+        print(f"Slash commands synced: {len(synced)}")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
+    schedule_alerts.start()
+    start_webserver()
 
-def run_web():
-    app.run(host="0.0.0.0", port=8080)
-
-threading.Thread(target=run_web).start()
-
-
-# 🔹 JSONBin에서 메시지 ID 가져오기
-async def get_jsonbin():
+async def get_jsonbin_data():
     async with aiohttp.ClientSession() as session:
-        async with session.get(f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest", headers=headers) as res:
-            data = await res.json()
-            return data['record']
+        headers = {"X-Master-Key": JSONBIN_API_KEY}
+        async with session.get(f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}", headers=headers) as r:
+            res = await r.json()
+            return res["record"]
 
-# 🔹 JSONBin에 메시지 ID 저장
-async def update_jsonbin(message_id):
-    payload = {MESSAGE_ID_KEY: message_id}
+async def update_jsonbin_data(data):
     async with aiohttp.ClientSession() as session:
-        async with session.put(f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}", headers=headers, json=payload) as res:
-            return await res.json()
+        headers = {
+            "X-Master-Key": JSONBIN_API_KEY,
+            "Content-Type": "application/json"
+        }
+        async with session.put(f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}", headers=headers, json=data) as r:
+            return await r.json()
 
-# 🔹 /알림 슬래시 명령어 (글로벌 등록)
-@bot.slash_command(name="알림", description="보스 알림을 설정합니다.")
-async def 알림(ctx):
-    if ctx.channel.name != CHANNEL_NAME:
-        await ctx.respond(f"이 명령어는 #{CHANNEL_NAME} 채널에서만 사용 가능합니다.", ephemeral=True)
+@TREE.command(name="알림", description="보스알림 메세지를 생성하거나 업데이트합니다.", guild=discord.Object(id=GUILD_ID))
+async def 알림(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    channel = discord.utils.get(interaction.guild.text_channels, name=BOSS_CHANNEL_NAME)
+    if not channel:
+        await interaction.followup.send("보스알림 채널을 찾을 수 없습니다.")
         return
 
-    await ctx.defer()
-    existing = await get_jsonbin()
-    message_id = existing.get(MESSAGE_ID_KEY)
-    content = "🔔 보스 알림을 받으시려면 벨 이모지를 클릭해주세요!"
+    data = await get_jsonbin_data()
+    msg_id = data.get(MESSAGE_KEY)
 
-    if message_id:
+    content = "🔔 이 메시지에 반응하면 '보스알림' 역할이 부여됩니다."
+
+    if msg_id:
         try:
-            msg = await ctx.channel.fetch_message(int(message_id))
-            await msg.edit(content=content)
-            await ctx.respond("기존 알림 메시지를 수정했어요!", ephemeral=True)
-            return
+            old_msg = await channel.fetch_message(int(msg_id))
+            await old_msg.edit(content=content)
+            await interaction.followup.send("메시지를 업데이트했어요.")
         except:
-            pass
+            new_msg = await channel.send(content)
+            await new_msg.add_reaction(BELL_EMOJI)
+            data[MESSAGE_KEY] = str(new_msg.id)
+            await update_jsonbin_data(data)
+            await interaction.followup.send("새 메시지를 보냈어요.")
+    else:
+        new_msg = await channel.send(content)
+        await new_msg.add_reaction(BELL_EMOJI)
+        data[MESSAGE_KEY] = str(new_msg.id)
+        await update_jsonbin_data(data)
+        await interaction.followup.send("알림 메시지를 생성했어요.")
 
-    msg = await ctx.channel.send(content)
-    await msg.add_reaction("🔔")
-    await update_jsonbin(msg.id)
-    await ctx.respond("새로운 알림 메시지를 등록했어요!", ephemeral=True)
-
-# 🔹 이모지 반응 감지
 @bot.event
 async def on_raw_reaction_add(payload):
-    if payload.emoji.name != "🔔":
+    if str(payload.emoji) != BELL_EMOJI:
         return
+
     guild = bot.get_guild(payload.guild_id)
+    if not guild:
+        return
+
+    data = await get_jsonbin_data()
+    if str(payload.message_id) != data.get(MESSAGE_KEY):
+        return
+
     role = discord.utils.get(guild.roles, name=ROLE_NAME)
     if not role:
         role = await guild.create_role(name=ROLE_NAME)
@@ -87,54 +106,64 @@ async def on_raw_reaction_add(payload):
 
 @bot.event
 async def on_raw_reaction_remove(payload):
-    if payload.emoji.name != "🔔":
+    if str(payload.emoji) != BELL_EMOJI:
         return
+
     guild = bot.get_guild(payload.guild_id)
+    if not guild:
+        return
+
+    data = await get_jsonbin_data()
+    if str(payload.message_id) != data.get(MESSAGE_KEY):
+        return
+
     role = discord.utils.get(guild.roles, name=ROLE_NAME)
     member = guild.get_member(payload.user_id)
     if member and role in member.roles:
         await member.remove_roles(role)
 
-# 🔹 보스 스케줄 타이머
-@tasks.loop(seconds=60)
-async def check_boss_schedule():
+@tasks.loop(seconds=30)
+async def schedule_alerts():
     now = datetime.datetime.now()
-    for channel in bot.get_all_channels():
-        if channel.name != CHANNEL_NAME:
-            continue
-        role = discord.utils.get(channel.guild.roles, name=ROLE_NAME)
-        if not role:
-            continue
+    minute = now.minute
+    hour = now.hour
 
-        boss = None
-        minute = now.minute
-        hour = now.hour
+    boss_name = None
+    if minute == 59 or minute == 29 or minute == 9 or minute == 39 or minute == 49:  # 1분 전 감지
+        next_min = (minute + 1) % 60
+        if next_min in BOSS_SCHEDULE["every_hour"]:
+            boss_name = BOSS_SCHEDULE["every_hour"][next_min]
+        elif hour % 2 == 1 and next_min in BOSS_SCHEDULE["odd_hours"]:
+            boss_name = BOSS_SCHEDULE["odd_hours"][next_min]
+        elif hour % 2 == 0 and next_min in BOSS_SCHEDULE["even_hours"]:
+            boss_name = BOSS_SCHEDULE["even_hours"][next_min]
 
-        if minute == 0:
-            boss = "그루트킹"
-        elif minute == 30:
-            boss = "해적 선장"
-        elif hour % 2 == 1:  # 홀수시
-            if minute == 10:
-                boss = "아절 브루트"
-            elif minute == 40:
-                boss = "쿵푸"
-            elif minute == 50:
-                boss = "세르칸"
-        else:  # 짝수시
-            if minute == 10:
-                boss = "위더"
-            elif minute == 40:
-                boss = "에이트"
+        if boss_name:
+            for guild in bot.guilds:
+                role = discord.utils.get(guild.roles, name=ROLE_NAME)
+                channel = discord.utils.get(guild.text_channels, name=BOSS_CHANNEL_NAME)
+                if role and channel:
+                    msg = await channel.send(f"{role.mention} ⏰ **{boss_name}** 1분 후 스폰됩니다!")
+                    await asyncio.sleep(60)
+                    await msg.delete()
 
-        if boss:
-            alert = await channel.send(f"{role.mention} ⏰ **{boss}** 등장 1분 전입니다!")
-            await asyncio.sleep(120)
-            await alert.delete()
+# 더미 웹서버
+def start_webserver():
+    from aiohttp import web
 
-@bot.event
-async def on_ready():
-    print(f"✅ 로그인됨: {bot.user}")
-    check_boss_schedule.start()
+    async def handler(request):
+        return web.Response(text="Bot is running!")
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    port = int(os.environ.get("PORT", 8080))
+    runner = web.AppRunner(app)
+
+    async def run_app():
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+
+    bot.loop.create_task(run_app())
 
 bot.run(TOKEN)
