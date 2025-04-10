@@ -58,6 +58,16 @@ def format_boss_message(now):
         lines.append(f"**{name}**: {mins}분 {secs}초 후")
     return "\n".join(lines)
 
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    try:
+        synced = await tree.sync()
+        print(f"Synced {len(synced)} commands")
+    except Exception as e:
+        print(f"Slash command sync error: {e}")
+
+
 @tree.command(name="알림", description="보스 알림 메시지를 보냅니다.")
 async def notify(interaction: discord.Interaction):
     await interaction.response.defer()
