@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: boss-alert-bot
+    env: python
+    buildCommand: ""
+    startCommand: python index.py
+    plan: free
+    envVars:
+      - key: TOKEN
+        value: your_discord_bot_token
+      - key: JSONBIN_API_KEY
+        value: your_jsonbin_api_key
+      - key: JSONBIN_BIN_ID
+        value: your_jsonbin_bin_id
