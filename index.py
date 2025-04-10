@@ -181,12 +181,14 @@ async def update_alert_message():
         if name:
             time_str = f"{check_time.hour:02d}:{check_time.minute:02d}"
             loc = BOSS_LOCATIONS.get(name, "?-?")
-            upcoming_bosses.append((name, loc, time_str))
+            upcoming_bosses.append((check_time, name, loc, time_str))
+
+    upcoming_bosses.sort(key=lambda x: x[0])  # 시간 기준 정렬
 
     if not upcoming_bosses:
         boss_info = "예정된 보스가 없습니다."
     else:
-        boss_info = "\n".join([f"**[{loc}] {name}** - {t} 등장 예정" for name, loc, t in upcoming_bosses])
+        boss_info = "\n".join([f"**[{loc}] {name}** - {t} 등장 예정" for _, name, loc, t in upcoming_bosses])
 
     content = (
         "🔔 이 메시지에 반응하면 '보스알림' 역할이 부여됩니다.\n\n"
