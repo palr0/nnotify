@@ -1,4 +1,5 @@
-import discord, asyncio, datetime, aiohttp
+import discord, asyncio, datetime, aiohttp, threading
+from flask import Flask
 from discord.ext import commands, tasks
 from config import TOKEN, JSONBIN_API_KEY, JSONBIN_BIN_ID
 
@@ -21,6 +22,16 @@ ALERT_TIMES = {
     "짝수_40": "에이트",
 }
 EMOJIS = ["🌳", "🏴‍☠️", "🧟", "🥋", "🐍", "💀", "🦑"]
+
+app = Flask("")
+
+@app.route("/")
+
+def home():
+    return "Bot is alive!"
+
+def run():
+    app.run(host="0.0.0.0", port=8080)
 
 async def update_or_create_message(channel):
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
@@ -143,5 +154,7 @@ async def boss_alert_loop():
 async def on_ready():
     print(f"봇 시작됨: {bot.user}")
     boss_alert_loop.start()
+    
+threading.Thread(target=run).start()
 
 bot.run(TOKEN)
