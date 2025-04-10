@@ -167,7 +167,7 @@ async def update_alert_message():
     now = datetime.datetime.now()
 
     upcoming_bosses = []
-    for min_offset in range(1, 60):
+    for min_offset in range(0, 60 * 3):  # 3시간 이내 보스만 표시
         check_time = now + datetime.timedelta(minutes=min_offset)
         h = check_time.hour
         m = check_time.minute
