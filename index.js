@@ -142,6 +142,7 @@ async function saveMessageId(guildId, messageId) {
 
 // 보스 메시지 업데이트
 // 보스 메시지 업데이트 함수 전체 수정
+// 보스 메시지 업데이트 함수 전체 수정
 async function updateBossMessage(guildId, channel, initialMessage) {
     // 기존 인터벌 제거
     if (updateIntervals.has(guildId)) {
@@ -185,6 +186,13 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                     return;
                 }
 
+                // 역할 멤버 수 확인
+                const membersWithRole = role.members.size;
+                if (membersWithRole === 0) {
+                    console.log(`[${getKoreanTime()}] ⚠️ ${ALERT_ROLE_NAME} 역할을 가진 멤버가 없어 알림을 보내지 않습니다.`);
+                    return;
+                }
+
                 const alertEmbed = new EmbedBuilder()
                     .setColor(0xFF0000)
                     .setTitle('⚠️ 보스 알림 ⚠️')
@@ -200,7 +208,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                     allowedMentions: { roles: [role.id] }
                 });
                 
-                console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss}`);
+                console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss} (${membersWithRole}명에게 전송)`);
             }
         } catch (err) {
             console.error(`[${getKoreanTime()}] ❌ 보스 메시지 업데이트 실패:`, err.message);
