@@ -52,7 +52,6 @@ const bossLocations = {
     '세르칸': '7-5 지역'
 };
 
-// 한국 시간 형식으로 변환
 // 한국 시간 형식으로 변환 (출력용으로 3시간 뺀 시간 표시)
 function getKoreanTime(date = new Date()) {
     const adjustedDate = new Date(date.getTime() - 3 * 60 * 60 * 1000);
@@ -206,16 +205,15 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                     const alertEmbed = new EmbedBuilder()
                         .setColor(0xFF0000)
                         .setTitle('⚠️ 보스 알림 ⚠️')
-                        .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
+                        .setDescription(`**${nextBoss.boss}**가 ${bossLocations[nextBoss.boss]}에 1분 후 출현합니다!`)
                         .addFields(
                             { name: "출현 시간", value: nextBoss.timeStr, inline: true },
-                            { name: "위치", value: bossLocations[nextBoss.boss] || "보스 출현 지역", inline: true },
                             { name: "알림", value: "이 알림은 1분 후에 자동으로 삭제됩니다.", inline: false }
                         )
                         .setFooter({ text: `출현 예정 시간: ${nextBoss.timeStr}` });
 
                     const alertMessage = await channel.send({ 
-                        content: `<@&${role.id}>`,
+                        content: `**${nextBoss.boss}**가 ${bossLocations[nextBoss.boss]}에 1분 후 출현합니다! <@&${role.id}>`,
                         embeds: [alertEmbed],
                         allowedMentions: { roles: [role.id] }
                     });
@@ -245,10 +243,10 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return; // 봇 메시지 무시
 
-    // (변경) 명령어가 아닌 경우 무시 (/로 시작하지 않으면 아무런 응답 X)
+    // 명령어가 아닌 경우 무시 (/로 시작하지 않으면 아무런 응답 X)
     if (!message.content.startsWith('/')) return;
 
-    // (변경) 명령어인 경우에만 채널 검사 수행
+    // 명령어인 경우에만 채널 검사 수행
     if (message.channel.name !== BOSS_CHANNEL_NAME) {
         const reply = await message.channel.send("⚠️ 이 명령어는 #보스알림 채널에서만 사용 가능합니다.");
         setTimeout(() => reply.delete(), 3000);
@@ -326,14 +324,18 @@ client.on('messageReactionAdd', async (reaction, user) => {
         
         if (!targetMessage || reaction.message.id !== targetMessage.id) return;
 
-        alertUsers.add(user.id);
-        const guild = reaction.message.guild;
-        const member = await guild.members.fetch(user.id);
+        // 사용자 캐시에서 가져오기 시도
+        let member = reaction.message.guild.members.cache.get(user.id);
+        
+        // 캐시에 없으면 API 요청
+        if (!member) {
+            member = await reaction.message.guild.members.fetch(user.id);
+        }
 
         // 역할 생성 또는 확인
-        let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+        let role = reaction.message.guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
         if (!role) {
-            role = await guild.roles.create({
+            role = await reaction.message.guild.roles.create({
                 name: ALERT_ROLE_NAME,
                 mentionable: true,
                 reason: '보스 알림을 위한 역할 자동 생성'
@@ -342,7 +344,16 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
         // 역할 부여
         await member.roles.add(role);
+        alertUsers.add(user.id);
+        
         console.log(`[${getKoreanTime()}] ✅ ${user.tag} 알림 등록 및 역할 부여`);
+
+        // 사용자에게 DM으로 알림
+        try {
+            await user.send(`✅ ${reaction.message.guild.name} 서버에서 보스 알림이 활성화되었습니다!`);
+        } catch (dmError) {
+            console.log(`[${getKoreanTime()}] ⚠️ ${user.tag}에게 DM을 보낼 수 없습니다.`);
+        }
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 반응 추가 처리 오류:`, err.message);
     }
@@ -359,14 +370,27 @@ client.on('messageReactionRemove', async (reaction, user) => {
         
         if (!targetMessage || reaction.message.id !== targetMessage.id) return;
 
-        alertUsers.delete(user.id);
-        const guild = reaction.message.guild;
-        const member = await guild.members.fetch(user.id);
-        const role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+        // 사용자 캐시에서 가져오기 시도
+        let member = reaction.message.guild.members.cache.get(user.id);
+        
+        // 캐시에 없으면 API 요청
+        if (!member) {
+            member = await reaction.message.guild.members.fetch(user.id);
+        }
+
+        const role = reaction.message.guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
 
         if (role) {
             await member.roles.remove(role);
+            alertUsers.delete(user.id);
             console.log(`[${getKoreanTime()}] 🔕 ${user.tag} 알림 해제 및 역할 제거`);
+
+            // 사용자에게 DM으로 알림
+            try {
+                await user.send(`🔕 ${reaction.message.guild.name} 서버에서 보스 알림이 비활성화되었습니다.`);
+            } catch (dmError) {
+                console.log(`[${getKoreanTime()}] ⚠️ ${user.tag}에게 DM을 보낼 수 없습니다.`);
+            }
         }
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 반응 제거 처리 오류:`, err.message);
@@ -397,6 +421,18 @@ client.once('ready', async () => {
             if (savedMessageId) {
                 try {
                     bossMessage = await bossAlertChannel.messages.fetch(savedMessageId);
+                    
+                    // 기존 반응 수집
+                    const reactions = bossMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
+                    if (reactions) {
+                        const users = await reactions.users.fetch();
+                        users.forEach(user => {
+                            if (!user.bot) {
+                                alertUsers.add(user.id);
+                            }
+                        });
+                    }
+                    
                     bossMessages.set(guildId, bossMessage);
                     console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${bossMessage.id}`);
                 } catch (fetchErr) {
