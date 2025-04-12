@@ -43,9 +43,9 @@ const bossSchedule = [
 ];
 
 // 한국 시간 형식으로 변환
-// 한국 시간 형식으로 변환 (출력용으로 6시간 뺀 시간 표시)
+// 한국 시간 형식으로 변환 (출력용으로 3시간 뺀 시간 표시)
 function getKoreanTime(date = new Date()) {
-    const adjustedDate = new Date(date.getTime() - 6 * 60 * 60 * 1000);
+    const adjustedDate = new Date(date.getTime() - 3 * 60 * 60 * 1000);
     return adjustedDate.toLocaleString('ko-KR', { 
         timeZone: 'Asia/Seoul',
         hour12: false,
