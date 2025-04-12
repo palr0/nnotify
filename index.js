@@ -176,20 +176,21 @@ async function updateBossMessage(guildId, channel, initialMessage) {
             const timeUntilBoss = nextBoss.date.getTime() - now.getTime();
             
             if (timeUntilBoss <= 60000 && timeUntilBoss > 0) {
-                const alertEmbed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle('⚠️ 보스 알림 ⚠️')
-                    .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
-                    .addFields(
-                        { name: "출현 시간", value: nextBoss.timeStr, inline: true },
-                        { name: "위치", value: "보스 출현 지역", inline: true }
-                    );
+    const alertEmbed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('⚠️ 보스 알림 ⚠️')
+        .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
+        .addFields(
+            { name: "출현 시간", value: nextBoss.timeStr, inline: true },
+            { name: "위치", value: "보스 출현 지역", inline: true }
+        );
 
-                channel.send({ 
-                    content: `@${ALERT_ROLE_NAME}`, 
-                    embeds: [alertEmbed] 
-                });
-            }
+    channel.send({ 
+        content: `<@&${role.id}>`, // 역할 맨션 방식 변경
+        embeds: [alertEmbed],
+        allowedMentions: { roles: [role.id] } // 역할만 맨션 허용
+    });
+}
         } catch (err) {
             console.error(`[${getKoreanTime()}] ❌ 보스 메시지 업데이트 실패:`, err.message);
         }
@@ -205,53 +206,48 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
-    // DM 처리 (보스알림 채널로 전송)
-    if (message.channel.type === 'DM') {
-        try {
-            // 사용자가 속한 모든 서버에서 보스알림 채널 찾기
-            const guildsWithBossChannel = [];
+   // DM 처리 로직 수정 (사용자에게 보내는 메시지 제거)
+if (message.channel.type === 'DM') {
+    try {
+        // 사용자가 속한 모든 서버에서 보스알림 채널 찾기
+        const guildsWithBossChannel = [];
+        
+        for (const [guildId, guild] of client.guilds.cache) {
+            const bossChannel = guild.channels.cache.find(c => 
+                c.name === BOSS_CHANNEL_NAME && 
+                c.type === 0 && // 텍스트 채널
+                c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
+            );
             
-            for (const [guildId, guild] of client.guilds.cache) {
-                const bossChannel = guild.channels.cache.find(c => 
-                    c.name === BOSS_CHANNEL_NAME && 
-                    c.type === 0 && // 텍스트 채널
-                    c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
-                );
-                
-                if (bossChannel && guild.members.cache.has(message.author.id)) {
-                    guildsWithBossChannel.push({
-                        guild,
-                        channel: bossChannel
-                    });
-                }
+            if (bossChannel && guild.members.cache.has(message.author.id)) {
+                guildsWithBossChannel.push({
+                    guild,
+                    channel: bossChannel
+                });
             }
-            
-            if (guildsWithBossChannel.length === 0) {
-                return message.author.send("⚠️ 연결된 보스알림 채널을 찾을 수 없습니다.");
-            }
-            
-            // 첫 번째 서버의 보스알림 채널에 메시지 전송
-            const { channel } = guildsWithBossChannel[0];
-            const reply = await channel.send({
-                content: `📩 ${message.author.tag}님의 DM: ${message.content}`,
-                allowedMentions: { parse: [] }
-            });
-            
-            // 1분 후 삭제
-            setTimeout(() => {
-                reply.delete().catch(console.error);
-            }, 60000);
-            
-            // 사용자에게 확인 메시지 전송
-            await message.author.send(`✅ 메시지가 ${channel.guild.name} 서버의 #${BOSS_CHANNEL_NAME} 채널로 전송되었습니다.`);
-            
-        } catch (err) {
-            console.error(`[${getKoreanTime()}] ❌ DM 처리 오류:`, err.message);
-            message.author.send("⚠️ 메시지 전송 중 오류가 발생했습니다.").catch(console.error);
         }
-        return;
+        
+        if (guildsWithBossChannel.length === 0) {
+            return; // 사용자에게 아무런 메시지도 보내지 않음
+        }
+        
+        // 첫 번째 서버의 보스알림 채널에 메시지 전송
+        const { channel } = guildsWithBossChannel[0];
+        const reply = await channel.send({
+            content: `📩 ${message.author.tag}님의 DM: ${message.content}`,
+            allowedMentions: { parse: [] }
+        });
+        
+        // 1분 후 삭제
+        setTimeout(() => {
+            reply.delete().catch(console.error);
+        }, 60000);
+        
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ DM 처리 오류:`, err.message);
     }
-    
+    return;
+}   
     // 보스알림 채널에서만 명령어 허용
     if (message.channel.name !== BOSS_CHANNEL_NAME) {
         const reply = await message.channel.send("⚠️ 이 명령어는 #보스알림 채널에서만 사용 가능합니다.");
@@ -361,7 +357,9 @@ client.on('messageReactionRemove', async (reaction, user) => {
         alertUsers.delete(user.id);
         const guild = reaction.message.guild;
         const member = await guild.members.fetch(user.id);
-        const role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+        // 보스 메시지 업데이트 함수 상단에 역할 찾는 코드 추가
+const role = channel.guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+if (!role) return; // 역할이 없으면 알림 전송하지 않음
 
         if (role) {
             await member.roles.remove(role);
