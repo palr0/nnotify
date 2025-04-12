@@ -1,5 +1,4 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
-import schedule from 'node-schedule';
 import axios from 'axios';
 import './server.js'; // server.js는 ES 모듈 방식으로 작성되어야 함
 
@@ -19,40 +18,35 @@ const client = new Client({
     ]
 });
 
-// getSavedMessageId 함수 정의
-async function getSavedMessageId(guildId) {
-    try {
-        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': JSONBIN_API_KEY }
-        });
-        return response.data.record[guildId];
-    } catch (err) {
-        console.error("❌ 메시지 ID 불러오기 실패:", err.message);
-        return null;
-    }
-}
+// getSavedMessageId와 saveMessageId 함수는 이미 정의되었으므로, 여기에 그대로 유지됩니다.
 
-// saveMessageId 함수 정의
-async function saveMessageId(guildId, messageId) {
-    try {
-        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': JSONBIN_API_KEY }
-        });
+// updateBossMessage 함수 추가
+async function updateBossMessage(channel, initialMessage) {
+    let guildId = channel.guild?.id || channel.guildId;
+    bossMessages.set(guildId, initialMessage);
 
-        const updatedRecord = response.data.record || {};
-        updatedRecord[guildId] = messageId;
+    setInterval(async () => {
+        const bosses = getUpcomingBosses();
+        if (bosses.length === 0) return;
 
-        await axios.put(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { record: updatedRecord }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': JSONBIN_API_KEY
-            }
-        });
+        const { boss: nextBoss, hour, minute } = bosses[0];
+        const nextNextBoss = bosses[1] || { boss: '없음', hour: '-', minute: '-' };
 
-        console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
-    } catch (err) {
-        console.error("❌ 메시지 ID 저장 실패:", err.message);
-    }
+        const embed = new EmbedBuilder()
+            .setColor(0x0099ff)
+            .setTitle('보스 알림 받기')
+            .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+            .addFields(
+                { name: "📢 다음 보스", value: `**${nextBoss}** (${hour}시 ${minute}분)`, inline: false },
+                { name: "⏭️ 그 다음 보스", value: `**${nextNextBoss.boss}** (${nextNextBoss.hour}시 ${nextNextBoss.minute}분)`, inline: false }
+            )
+            .setFooter({ text: '🔔 클릭해서 알림을 받으세요!' });
+
+        const bossMessage = bossMessages.get(guildId);
+        if (bossMessage) {
+            await bossMessage.edit({ embeds: [embed] }).catch(console.error);
+        }
+    }, 2000); // 2초마다 업데이트
 }
 
 client.once('ready', async () => {
@@ -94,7 +88,7 @@ client.once('ready', async () => {
             await saveMessageId(guild.id, bossMessage.id);
         }
 
-        updateBossMessage(bossAlertChannel, bossMessage);
+        updateBossMessage(bossAlertChannel, bossMessage); // 여기에 추가된 함수 호출
     });
 });
 
