@@ -10,7 +10,7 @@ dotenv.config();
 const BOSS_CHANNEL_NAME = '보스알림';
 const ALERT_ROLE_NAME = '보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
-const UPDATE_INTERVAL_MS = 60000; // 1분
+const UPDATE_INTERVAL_MS = 10000; // 10초
 
 // 검증
 if (!process.env.TOKEN) throw new Error("TOKEN 환경 변수가 필요합니다.");
@@ -157,7 +157,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
         clearInterval(updateIntervals.get(guildId));
     }
 
-    // 새 인터벌 설정
+    // 새 인터벌 설정 (10초마다 실행)
     const intervalId = setInterval(async () => {
         try {
             const now = new Date();
@@ -183,7 +183,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                 await bossMessage.edit({ embeds: [embed] });
             }
 
-            // 1분 전 알림 로직
+            // 1분 전 알림 로직 (10초마다 확인)
             const timeUntilBoss = nextBoss.date.getTime() - now.getTime();
             
             if (timeUntilBoss <= 60000 && timeUntilBoss > 0) {
@@ -201,35 +201,43 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                     return;
                 }
 
-                const alertEmbed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle('⚠️ 보스 알림 ⚠️')
-                    .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
-                    .addFields(
-                        { name: "출현 시간", value: nextBoss.timeStr, inline: true },
-                        { name: "위치", value: bossLocations[nextBoss.boss] || "보스 출현 지역", inline: true },
-                        { name: "알림", value: "이 알림은 1분 후에 자동으로 삭제됩니다.", inline: false }
-                    )
-                    .setFooter({ text: `출현 예정 시간: ${nextBoss.timeStr}` });
+                // 이미 알림을 보냈는지 확인 (중복 알림 방지)
+                if (!bossMessages.has(`${guildId}_alert_${nextBoss.boss}_${nextBoss.timeStr}`)) {
+                    const alertEmbed = new EmbedBuilder()
+                        .setColor(0xFF0000)
+                        .setTitle('⚠️ 보스 알림 ⚠️')
+                        .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
+                        .addFields(
+                            { name: "출현 시간", value: nextBoss.timeStr, inline: true },
+                            { name: "위치", value: bossLocations[nextBoss.boss] || "보스 출현 지역", inline: true },
+                            { name: "알림", value: "이 알림은 1분 후에 자동으로 삭제됩니다.", inline: false }
+                        )
+                        .setFooter({ text: `출현 예정 시간: ${nextBoss.timeStr}` });
 
-                const alertMessage = await channel.send({ 
-                    content: `<@&${role.id}>`,
-                    embeds: [alertEmbed],
-                    allowedMentions: { roles: [role.id] }
-                });
-                
-                console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss} (${membersWithRole}명에게 전송)`);
+                    const alertMessage = await channel.send({ 
+                        content: `<@&${role.id}>`,
+                        embeds: [alertEmbed],
+                        allowedMentions: { roles: [role.id] }
+                    });
+                    
+                    console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss} (${membersWithRole}명에게 전송)`);
+                    
+                    // 중복 알림 방지를 위해 표시
+                    bossMessages.set(`${guildId}_alert_${nextBoss.boss}_${nextBoss.timeStr}`, true);
 
-                // 1분 후에 알림 메시지 삭제
-                setTimeout(() => {
-                    alertMessage.delete().catch(console.error);
-                    console.log(`[${getKoreanTime()}] 🗑️ 보스 알림 메시지 삭제: ${nextBoss.boss}`);
-                }, 60000);
+                    // 1분 후에 알림 메시지 삭제
+                    setTimeout(() => {
+                        alertMessage.delete().catch(console.error);
+                        console.log(`[${getKoreanTime()}] 🗑️ 보스 알림 메시지 삭제: ${nextBoss.boss}`);
+                        // 중복 알림 방지 플래그 제거
+                        bossMessages.delete(`${guildId}_alert_${nextBoss.boss}_${nextBoss.timeStr}`);
+                    }, 60000);
+                }
             }
         } catch (err) {
             console.error(`[${getKoreanTime()}] ❌ 보스 메시지 업데이트 실패:`, err.message);
         }
-    }, UPDATE_INTERVAL_MS);
+    }, UPDATE_INTERVAL_MS); // 10초마다 실행
 
     updateIntervals.set(guildId, intervalId);
 }
