@@ -1,13 +1,13 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const schedule = require('node-schedule');
-const server = require('./server.js');
-const axios = require('axios');
+import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import schedule from 'node-schedule';
+import axios from 'axios';
+import server from './server.js'; // server.js 파일도 ES 모듈 방식으로 작성되어야 함
+
 const bossMessages = new Map();
 const alertUsers = new Set();
 const TOKEN = process.env.TOKEN;
 const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY;
 const JSONBIN_BIN_ID = process.env.JSONBIN_BIN_ID;
-
 
 const client = new Client({
     intents: [
@@ -22,7 +22,7 @@ const client = new Client({
 client.on('messageCreate', async (message) => {
     if (message.content.startsWith('/시간 한국표준')) {
         const now = new Date();
-        const seoulTime = now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+        const seoulTime = now.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
         message.channel.send(`현재 한국 표준시(KST)는: ${seoulTime}`);
     }
 
@@ -34,9 +34,7 @@ client.on('messageCreate', async (message) => {
 
         const [hour, minute] = timeString.split(':').map(Number);
         const now = new Date();
-        now.setHours(hour);
-        now.setMinutes(minute);
-        now.setSeconds(0);
+        now.setHours(hour, minute, 0);
 
         message.channel.send(`시간이 ${hour}:${minute}로 조정되었습니다. 새로운 시간이 설정되었습니다: ${now}`);
     }
@@ -84,10 +82,7 @@ function getUpcomingBosses() {
             if (hourType === '짝수' && checkHour % 2 !== 0) return;
 
             const bossDate = new Date(now);
-            bossDate.setHours(checkHour);
-            bossDate.setMinutes(minute);
-            bossDate.setSeconds(0);
-            bossDate.setMilliseconds(0);
+            bossDate.setHours(checkHour, minute, 0, 0);
 
             if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
 
@@ -107,8 +102,8 @@ function getUpcomingBosses() {
 
 async function getSavedMessageId(guildId) {
     try {
-        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': config.JSONBIN_API_KEY }
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_API_KEY }
         });
         return response.data.record[guildId];
     } catch (err) {
@@ -119,17 +114,17 @@ async function getSavedMessageId(guildId) {
 
 async function saveMessageId(guildId, messageId) {
     try {
-        const response = await axios.get(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}/latest`, {
-            headers: { 'X-Master-Key': config.JSONBIN_API_KEY }
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_API_KEY }
         });
 
         const updatedRecord = response.data.record || {};
         updatedRecord[guildId] = messageId;
 
-        await axios.put(`https://api.jsonbin.io/v3/b/${config.JSONBIN_BIN_ID}`, { record: updatedRecord }, {
+        await axios.put(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { record: updatedRecord }, {
             headers: {
                 'Content-Type': 'application/json',
-                'X-Master-Key': config.JSONBIN_API_KEY
+                'X-Master-Key': JSONBIN_API_KEY
             }
         });
 
@@ -144,7 +139,7 @@ async function updateBossMessage(channel, initialMessage) {
     bossMessages.set(guildId, initialMessage);
 
     setInterval(async () => {
-        const bosses = getUpcomingBosses(2);
+        const bosses = getUpcomingBosses();
         if (bosses.length === 0) return;
 
         const { boss: nextBoss, hour, minute } = bosses[0];
@@ -232,7 +227,6 @@ client.once('ready', async () => {
             const savedMessageId = await getSavedMessageId(guild.id);
             if (savedMessageId) {
                 const fetched = await bossAlertChannel.messages.fetch(savedMessageId, { cache: false, force: true });
-
                 if (fetched && fetched.edit) {
                     bossMessage = fetched;
                     bossMessages.set(guild.id, bossMessage);
