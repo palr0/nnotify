@@ -200,12 +200,60 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
+    // DM 처리 (보스알림 채널로 전송)
+    if (message.channel.type === 'DM') {
+        try {
+            // 사용자가 속한 모든 서버에서 보스알림 채널 찾기
+            const guildsWithBossChannel = [];
+            
+            for (const [guildId, guild] of client.guilds.cache) {
+                const bossChannel = guild.channels.cache.find(c => 
+                    c.name === BOSS_CHANNEL_NAME && 
+                    c.type === 0 && // 텍스트 채널
+                    c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
+                );
+                
+                if (bossChannel && guild.members.cache.has(message.author.id)) {
+                    guildsWithBossChannel.push({
+                        guild,
+                        channel: bossChannel
+                    });
+                }
+            }
+            
+            if (guildsWithBossChannel.length === 0) {
+                return message.author.send("⚠️ 연결된 보스알림 채널을 찾을 수 없습니다.");
+            }
+            
+            // 첫 번째 서버의 보스알림 채널에 메시지 전송
+            const { channel } = guildsWithBossChannel[0];
+            const reply = await channel.send({
+                content: `📩 ${message.author.tag}님의 DM: ${message.content}`,
+                allowedMentions: { parse: [] }
+            });
+            
+            // 1분 후 삭제
+            setTimeout(() => {
+                reply.delete().catch(console.error);
+            }, 60000);
+            
+            // 사용자에게 확인 메시지 전송
+            await message.author.send(`✅ 메시지가 ${channel.guild.name} 서버의 #${BOSS_CHANNEL_NAME} 채널로 전송되었습니다.`);
+            
+        } catch (err) {
+            console.error(`[${getKoreanTime()}] ❌ DM 처리 오류:`, err.message);
+            message.author.send("⚠️ 메시지 전송 중 오류가 발생했습니다.").catch(console.error);
+        }
+        return;
+    }
+    
     // 보스알림 채널에서만 명령어 허용
     if (message.channel.name !== BOSS_CHANNEL_NAME) {
         const reply = await message.channel.send("⚠️ 이 명령어는 #보스알림 채널에서만 사용 가능합니다.");
         setTimeout(() => reply.delete(), 3000); // 3초 후 삭제
         return;
     }
+    
     try {
         // 한국 시간 표시
         if (message.content.startsWith('/시간 한국표준')) {
