@@ -35,11 +35,11 @@ const client = new Client({
 const bossSchedule = [
     { minute: 0, boss: '그루트킹' },
     { minute: 30, boss: '해적 선장' },
-    { hourType: '홀수', minute: 10, boss: '아절 브루트' },
-    { hourType: '짝수', minute: 10, boss: '위더' },
-    { hourType: '홀수', minute: 40, boss: '쿵푸' },
-    { hourType: '짝수', minute: 40, boss: '에이트' },
-    { hourType: '홀수', minute: 50, boss: '세르칸' }
+    { hourType: '홀수', minute: 10, boss: '위더' },
+    { hourType: '짝수', minute: 10, boss: '아절 브루트' },
+    { hourType: '홀수', minute: 40, boss: '에이트' },
+    { hourType: '짝수', minute: 40, boss: '쿵푸' },
+    { hourType: '짝수', minute: 50, boss: '세르칸' }
 ];
 
 // 한국 시간 형식으로 변환
