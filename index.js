@@ -235,16 +235,17 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 }
 
 client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    
-    // 명령어인 경우에만 처리 (/로 시작하는지 확인)
-    if (message.content.startsWith('/')) {
-        // 보스알림 채널에서만 명령어 허용
-        if (message.channel.name !== BOSS_CHANNEL_NAME) {
-            const reply = await message.channel.send("⚠️ 이 명령어는 #보스알림 채널에서만 사용 가능합니다.");
-            setTimeout(() => reply.delete(), 3000); // 3초 후 삭제
-            return;
-        }
+    if (message.author.bot) return; // 봇 메시지 무시
+
+    // (변경) 명령어가 아닌 경우 무시 (/로 시작하지 않으면 아무런 응답 X)
+    if (!message.content.startsWith('/')) return;
+
+    // (변경) 명령어인 경우에만 채널 검사 수행
+    if (message.channel.name !== BOSS_CHANNEL_NAME) {
+        const reply = await message.channel.send("⚠️ 이 명령어는 #보스알림 채널에서만 사용 가능합니다.");
+        setTimeout(() => reply.delete(), 3000);
+        return;
+    }
         
         try {
             // 한국 시간 표시
