@@ -313,7 +313,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 반응 추가 처리
+// 반응 추가 처리 (변경된 부분)
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
     if (reaction.emoji.name !== BOSS_ALERT_EMOJI) return;
@@ -347,19 +347,12 @@ client.on('messageReactionAdd', async (reaction, user) => {
         alertUsers.add(user.id);
         
         console.log(`[${getKoreanTime()}] ✅ ${user.tag} 알림 등록 및 역할 부여`);
-
-        // 사용자에게 DM으로 알림
-        try {
-            await user.send(`✅ ${reaction.message.guild.name} 서버에서 보스 알림이 활성화되었습니다!`);
-        } catch (dmError) {
-            console.log(`[${getKoreanTime()}] ⚠️ ${user.tag}에게 DM을 보낼 수 없습니다.`);
-        }
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 반응 추가 처리 오류:`, err.message);
     }
 });
 
-// 반응 제거 처리
+// 반응 제거 처리 (변경된 부분)
 client.on('messageReactionRemove', async (reaction, user) => {
     if (user.bot) return;
     if (reaction.emoji.name !== BOSS_ALERT_EMOJI) return;
@@ -384,13 +377,6 @@ client.on('messageReactionRemove', async (reaction, user) => {
             await member.roles.remove(role);
             alertUsers.delete(user.id);
             console.log(`[${getKoreanTime()}] 🔕 ${user.tag} 알림 해제 및 역할 제거`);
-
-            // 사용자에게 DM으로 알림
-            try {
-                await user.send(`🔕 ${reaction.message.guild.name} 서버에서 보스 알림이 비활성화되었습니다.`);
-            } catch (dmError) {
-                console.log(`[${getKoreanTime()}] ⚠️ ${user.tag}에게 DM을 보낼 수 없습니다.`);
-            }
         }
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 반응 제거 처리 오류:`, err.message);
