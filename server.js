@@ -1,15 +1,28 @@
-// server.js
 import express from 'express';
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// 기본 핑 경로
 app.get('/', (req, res) => {
     res.send('✅ 디스코드 봇 서버가 실행 중입니다.');
 });
 
-app.listen(PORT, () => {
-    console.log(`✅ 웹서버 실행됨 (포트: ${PORT})`);
+// 추가 핑 경로 (선택 사항)
+app.get('/ping', (req, res) => {
+    res.sendStatus(200);
 });
 
-export default app; // 서버 인스턴스를 default export
+app.listen(PORT, () => {
+    console.log(`✅ 웹서버 실행됨 (포트: ${PORT})`);
+    
+    // 15분마다 자기 자신을 호출 (선택 사항)
+    if (process.env.RENDER) {
+        setInterval(() => {
+            fetch(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:'+PORT}/ping`)
+                .catch(err => console.error('핑 실패:', err));
+        }, 14 * 60 * 1000); // 14분마다 호출
+    }
+});
+
+export default app;
