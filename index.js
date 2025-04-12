@@ -58,16 +58,22 @@ function getKoreanTime(date = new Date()) {
 
 // 다음 보스 목록 가져오기
 function getUpcomingBosses(now = new Date()) {
-    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
     const possibleBosses = [];
 
-    for (let offsetHour = 0; offsetHour <= 6; offsetHour++) {
-        const checkHour = (now.getHours() + offsetHour) % 24;
+    // 현재 시간부터 6시간 이내의 보스 검사
+    for (let hourOffset = 0; hourOffset <= 6; hourOffset++) {
+        const checkHour = (currentHour + hourOffset) % 24;
+        const isOddHour = checkHour % 2 !== 0;
 
         bossSchedule.forEach(({ hourType, minute, boss }) => {
-            // 시간 타입 검증 (홀수/짝수 시간)
-            if (hourType === '홀수' && checkHour % 2 === 0) return;
-            if (hourType === '짝수' && checkHour % 2 !== 0) return;
+            // 시간 타입 검사 (홀수/짝수 시간)
+            if (hourType === '홀수' && !isOddHour) return;
+            if (hourType === '짝수' && isOddHour) return;
+
+            // 현재 시간과 같은 시간대의 경우, 이미 지난 분은 건너뜀
+            if (hourOffset === 0 && minute <= currentMinute) return;
 
             const bossDate = new Date(now);
             bossDate.setHours(checkHour, minute, 0, 0);
