@@ -42,13 +42,9 @@ const bossSchedule = [
     { hourType: '홀수', minute: 50, boss: '세르칸' }
 ];
 
-// 한국 시간 형식으로 변환 (-3시간 적용)
+// 한국 시간 형식으로 변환
 function getKoreanTime(date = new Date()) {
-    // 현재 시간에서 3시간 빼기
-    const adjustedDate = new Date(date);
-    adjustedDate.setHours(adjustedDate.getHours() - 3);
-    
-    return adjustedDate.toLocaleString('ko-KR', { 
+    return date.toLocaleString('ko-KR', { 
         timeZone: 'Asia/Seoul',
         hour12: false,
         year: 'numeric',
