@@ -52,12 +52,6 @@ const bossLocations = {
     '세르칸': '7-5 지역'
 };
 
-// ...
-.addFields(
-    { name: "출현 시간", value: nextBoss.timeStr, inline: true },
-    { name: "위치", value: bossLocations[nextBoss.boss] || "보스 출현 지역", inline: true }
-)
-
 // 한국 시간 형식으로 변환
 // 한국 시간 형식으로 변환 (출력용으로 3시간 뺀 시간 표시)
 function getKoreanTime(date = new Date()) {
