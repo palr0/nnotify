@@ -83,6 +83,9 @@ function getUpcomingBosses() {
             const bossDate = new Date(now);
             bossDate.setHours(checkHour, minute, 0, 0);
 
+            // 3시간을 빼는 부분
+            bossDate.setHours(bossDate.getHours() - 3);
+
             if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
 
             possibleBosses.push({
@@ -98,6 +101,7 @@ function getUpcomingBosses() {
     possibleBosses.sort((a, b) => a.date - b.date);
     return possibleBosses;
 }
+
 
 async function getSavedMessageId(guildId) {
     try {
