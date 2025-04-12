@@ -42,6 +42,7 @@ const bossSchedule = [
     { hourType: '짝수', minute: 50, boss: '세르칸' }
 ];
 
+// 한국 시간 형식으로 변환
 // 한국 시간 형식으로 변환 (출력용으로 6시간 뺀 시간 표시)
 function getKoreanTime(date = new Date()) {
     const adjustedDate = new Date(date.getTime() - 6 * 60 * 60 * 1000);
@@ -101,9 +102,46 @@ function getUpcomingBosses(now = new Date()) {
     return possibleBosses;
 }
 
-// ... (나머지 코드는 동일하게 유지)
+// JSONBin에서 데이터 가져오기
+async function getSavedMessageId(guildId) {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
+        });
+        return response.data.record[guildId];
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 메시지 ID 불러오기 실패:`, err.message);
+        return null;
+    }
+}
 
-// 보스 메시지 업데이트 함수
+// JSONBin에 데이터 저장
+async function saveMessageId(guildId, messageId) {
+    try {
+        // 기존 데이터 가져오기
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
+        });
+
+        const updatedRecord = response.data?.record || {};
+        updatedRecord[guildId] = messageId;
+
+        // 업데이트된 데이터 저장
+        await axios.put(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}`, updatedRecord, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': process.env.JSONBIN_API_KEY,
+                'X-Bin-Versioning': 'false'
+            }
+        });
+
+        console.log(`[${getKoreanTime()}] ✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 메시지 ID 저장 실패:`, err.message);
+    }
+}
+
+// 보스 메시지 업데이트 함수 전체 수정
 async function updateBossMessage(guildId, channel, initialMessage) {
     // 기존 인터벌 제거
     if (updateIntervals.has(guildId)) {
@@ -120,7 +158,23 @@ async function updateBossMessage(guildId, channel, initialMessage) {
             const nextBoss = bosses[0];
             const nextNextBoss = bosses[1] || { boss: '없음', timeStr: '-' };
 
-            // 1분 전 알림 로직 (실제 시간 비교)
+            // 메인 메시지 업데이트
+            const embed = new EmbedBuilder()
+                .setColor(0x0099ff)
+                .setTitle('보스 알림 받기')
+                .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+                .addFields(
+                    { name: "📢 다음 보스", value: `**${nextBoss.boss}** (${nextBoss.timeStr})`, inline: false },
+                    { name: "⏭️ 그 다음 보스", value: `**${nextNextBoss.boss}** (${nextNextBoss.timeStr})`, inline: false }
+                )
+                .setFooter({ text: `${BOSS_ALERT_EMOJI} 클릭해서 알림을 받으세요!` });
+
+            const bossMessage = bossMessages.get(guildId);
+            if (bossMessage && bossMessage.editable) {
+                await bossMessage.edit({ embeds: [embed] });
+            }
+
+            // 1분 전 알림 로직
             const timeUntilBoss = nextBoss.date.getTime() - now.getTime();
             
             if (timeUntilBoss <= 60000 && timeUntilBoss > 0) {
@@ -154,22 +208,6 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                 });
                 
                 console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss} (${membersWithRole}명에게 전송)`);
-            }
-
-            // 메인 메시지 업데이트
-            const embed = new EmbedBuilder()
-                .setColor(0x0099ff)
-                .setTitle('보스 알림 받기')
-                .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-                .addFields(
-                    { name: "📢 다음 보스", value: `**${nextBoss.boss}** (${nextBoss.timeStr})`, inline: false },
-                    { name: "⏭️ 그 다음 보스", value: `**${nextNextBoss.boss}** (${nextNextBoss.timeStr})`, inline: false }
-                )
-                .setFooter({ text: `${BOSS_ALERT_EMOJI} 클릭해서 알림을 받으세요!` });
-
-            const bossMessage = bossMessages.get(guildId);
-            if (bossMessage && bossMessage.editable) {
-                await bossMessage.edit({ embeds: [embed] });
             }
         } catch (err) {
             console.error(`[${getKoreanTime()}] ❌ 보스 메시지 업데이트 실패:`, err.message);
