@@ -42,6 +42,22 @@ const bossSchedule = [
     { hourType: '짝수', minute: 50, boss: '세르칸' }
 ];
 
+const bossLocations = {
+    '그루트킹': '1-5 지역',
+    '해적 선장': '2-5 지역',
+    '아절 브루트': '3-5 지역',
+    '위더': '4-5 지역',
+    '쿵푸': '5-1 지역',
+    '에이트': '6-5 지역',
+    '세르칸': '7-5 지역'
+};
+
+// ...
+.addFields(
+    { name: "출현 시간", value: nextBoss.timeStr, inline: true },
+    { name: "위치", value: bossLocations[nextBoss.boss] || "보스 출현 지역", inline: true }
+)
+
 // 한국 시간 형식으로 변환
 // 한국 시간 형식으로 변환 (출력용으로 3시간 뺀 시간 표시)
 function getKoreanTime(date = new Date()) {
