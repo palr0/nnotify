@@ -59,7 +59,7 @@ function getKoreanTime(date = new Date()) {
 // 다음 보스 목록 가져오기
 function getUpcomingBosses(now = new Date()) {
     // 현재 시간에서 3시간을 뺀 시간을 기준으로 계산
-    const adjustedNow = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const adjustedNow = new Date(now.getTime() - 6 * 60 * 60 * 1000);
     const currentHour = adjustedNow.getHours();
     const currentMinute = adjustedNow.getMinutes();
     const possibleBosses = [];
