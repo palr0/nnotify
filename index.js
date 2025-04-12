@@ -19,7 +19,41 @@ const client = new Client({
     ]
 });
 
-// 기타 메시지 이벤트들...
+// getSavedMessageId 함수 정의
+async function getSavedMessageId(guildId) {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_API_KEY }
+        });
+        return response.data.record[guildId];
+    } catch (err) {
+        console.error("❌ 메시지 ID 불러오기 실패:", err.message);
+        return null;
+    }
+}
+
+// saveMessageId 함수 정의
+async function saveMessageId(guildId, messageId) {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_API_KEY }
+        });
+
+        const updatedRecord = response.data.record || {};
+        updatedRecord[guildId] = messageId;
+
+        await axios.put(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, { record: updatedRecord }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_API_KEY
+            }
+        });
+
+        console.log(`✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
+    } catch (err) {
+        console.error("❌ 메시지 ID 저장 실패:", err.message);
+    }
+}
 
 client.once('ready', async () => {
     console.log(`✅ ${client.user.tag} 봇이 온라인입니다!`);
