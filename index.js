@@ -202,20 +202,31 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                     return;
                 }
 
-                const alertEmbed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle('⚠️ 보스 알림 ⚠️')
-                    .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
-                    .addFields(
-                        { name: "출현 시간", value: nextBoss.timeStr, inline: true },
-                        { name: "위치", value: "보스 출현 지역", inline: true }
-                    );
+               const alertEmbed = new EmbedBuilder()
+    .setColor(0xFF0000)
+    .setTitle('⚠️ 보스 알림 ⚠️')
+    .setDescription(`**${nextBoss.boss}**가 1분 후에 출현합니다!`)
+    .addFields(
+        { name: "출현 시간", value: nextBoss.timeStr, inline: true },
+        { name: "위치", value: bossLocations[nextBoss.boss] || "보스 출현 지역", inline: true },
+        { name: "알림", value: "이 메시지는 1분 후에 자동으로 삭제됩니다.", inline: false }
+    );
 
-                await channel.send({ 
-                    content: `<@&${role.id}>`,
-                    embeds: [alertEmbed],
-                    allowedMentions: { roles: [role.id] }
-                });
+const alertMessage = await channel.send({ 
+    content: `<@&${role.id}>`,
+    embeds: [alertEmbed],
+    allowedMentions: { roles: [role.id] }
+});
+
+// 1분 후 메시지 삭제
+setTimeout(async () => {
+    try {
+        await alertMessage.delete();
+        console.log(`[${getKoreanTime()}] 🗑️ 보스 알림 메시지 삭제 완료: ${nextBoss.boss}`);
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 보스 알림 메시지 삭제 실패:`, err.message);
+    }
+}, 60000);
                 
                 console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss} (${membersWithRole}명에게 전송)`);
             }
