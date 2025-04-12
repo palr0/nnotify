@@ -158,7 +158,7 @@ async function updateBossMessage(channel, initialMessage) {
         if (bossMessage) {
             await bossMessage.edit({ embeds: [embed] }).catch(console.error);
         }
-    }, 2000);
+    }, 60000); // 1분마다 갱신
 }
 
 client.on('messageReactionAdd', async (reaction, user) => {
