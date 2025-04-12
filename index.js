@@ -84,7 +84,7 @@ function getUpcomingBosses() {
             bossDate.setHours(checkHour, minute, 0, 0);
 
             // 3시간을 빼는 부분
-            bossDate.setHours(bossDate.getHours() + 3);
+            bossDate.setHours(bossDate.getHours() + 6);
 
             if (bossDate < now) bossDate.setDate(bossDate.getDate() + 1);
 
