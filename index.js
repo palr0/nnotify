@@ -58,8 +58,10 @@ function getKoreanTime(date = new Date()) {
 
 // 다음 보스 목록 가져오기
 function getUpcomingBosses(now = new Date()) {
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    // 현재 시간에서 3시간을 뺀 시간을 기준으로 계산
+    const adjustedNow = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const currentHour = adjustedNow.getHours();
+    const currentMinute = adjustedNow.getMinutes();
     const possibleBosses = [];
 
     // 현재 시간부터 6시간 이내의 보스 검사
@@ -75,18 +77,21 @@ function getUpcomingBosses(now = new Date()) {
             // 현재 시간과 같은 시간대의 경우, 이미 지난 분은 건너뜀
             if (hourOffset === 0 && minute <= currentMinute) return;
 
-            const bossDate = new Date(now);
+            const bossDate = new Date(adjustedNow);
             bossDate.setHours(checkHour, minute, 0, 0);
 
             // 이미 지난 시간은 다음 날로 설정
-            if (bossDate <= now) {
+            if (bossDate <= adjustedNow) {
                 bossDate.setDate(bossDate.getDate() + 1);
             }
 
+            // 실제 시간으로 보정 (3시간 더하기)
+            const realBossDate = new Date(bossDate.getTime() + 3 * 60 * 60 * 1000);
+
             possibleBosses.push({
                 boss,
-                date: bossDate,
-                timeStr: `${bossDate.getHours().toString().padStart(2, '0')}:${bossDate.getMinutes().toString().padStart(2, '0')}`
+                date: realBossDate,
+                timeStr: `${realBossDate.getHours().toString().padStart(2, '0')}:${realBossDate.getMinutes().toString().padStart(2, '0')}`
             });
         });
     }
