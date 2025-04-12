@@ -247,64 +247,63 @@ client.on('messageCreate', async (message) => {
         return;
     }
         
-        try {
-            // 한국 시간 표시
-            if (message.content.startsWith('/시간 한국표준')) {
-                const koreanTime = getKoreanTime();
-                const reply = await message.channel.send(`현재 한국 표준시(KST)는: ${koreanTime}\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.`);
-                setTimeout(() => {
-                    reply.delete().catch(console.error);
-                    console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
-                }, 60000);
-                return;
-            }
-
-            // 보스 순서 표시
-            if (message.content.startsWith('/보스 순서')) {
-                const bosses = getUpcomingBosses();
-                const description = bosses.slice(0, 5).map(b => `**${b.boss}** - ${b.timeStr}`).join('\n');
-
-                const embed = new EmbedBuilder()
-                    .setColor(0x00FF00)
-                    .setTitle('🕒 앞으로 등장할 보스 순서 (최대 5개)')
-                    .setDescription(description || '예정된 보스가 없습니다.')
-                    .setFooter({ text: '이 메시지는 1분 후에 자동으로 삭제됩니다.' });
-
-                const reply = await message.channel.send({ embeds: [embed] });
-                setTimeout(() => {
-                    reply.delete().catch(console.error);
-                    console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
-                }, 60000);
-                return;
-            }
-
-            // 도움말
-            if (message.content.startsWith('/도움말')) {
-                const embed = new EmbedBuilder()
-                    .setColor(0x7289DA)
-                    .setTitle('📝 명령어 도움말')
-                    .addFields(
-                        { name: '/시간 한국표준', value: '현재 한국 시간을 표시합니다.' },
-                        { name: '/보스 순서', value: '다가오는 보스 출현 순서를 표시합니다.' },
-                        { name: '/도움말', value: '이 도움말을 표시합니다.' }
-                    )
-                    .setFooter({ text: '이 메시지는 1분 후에 자동으로 삭제됩니다.' });
-
-                const reply = await message.channel.send({ embeds: [embed] });
-                setTimeout(() => {
-                    reply.delete().catch(console.error);
-                    console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
-                }, 60000);
-                return;
-            }
-        } catch (err) {
-            console.error(`[${getKoreanTime()}] ❌ 명령어 처리 오류:`, err.message);
-            const errorMsg = await message.channel.send('명령어 처리 중 오류가 발생했습니다.\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.');
+    try {
+        // 한국 시간 표시
+        if (message.content.startsWith('/시간 한국표준')) {
+            const koreanTime = getKoreanTime();
+            const reply = await message.channel.send(`현재 한국 표준시(KST)는: ${koreanTime}\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.`);
             setTimeout(() => {
-                errorMsg.delete().catch(console.error);
-                console.log(`[${getKoreanTime()}] 메시지 삭제: ${errorMsg.id}`);
+                reply.delete().catch(console.error);
+                console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
             }, 60000);
+            return;
         }
+
+        // 보스 순서 표시
+        if (message.content.startsWith('/보스 순서')) {
+            const bosses = getUpcomingBosses();
+            const description = bosses.slice(0, 5).map(b => `**${b.boss}** - ${b.timeStr}`).join('\n');
+
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('🕒 앞으로 등장할 보스 순서 (최대 5개)')
+                .setDescription(description || '예정된 보스가 없습니다.')
+                .setFooter({ text: '이 메시지는 1분 후에 자동으로 삭제됩니다.' });
+
+            const reply = await message.channel.send({ embeds: [embed] });
+            setTimeout(() => {
+                reply.delete().catch(console.error);
+                console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
+            }, 60000);
+            return;
+        }
+
+        // 도움말
+        if (message.content.startsWith('/도움말')) {
+            const embed = new EmbedBuilder()
+                .setColor(0x7289DA)
+                .setTitle('📝 명령어 도움말')
+                .addFields(
+                    { name: '/시간 한국표준', value: '현재 한국 시간을 표시합니다.' },
+                    { name: '/보스 순서', value: '다가오는 보스 출현 순서를 표시합니다.' },
+                    { name: '/도움말', value: '이 도움말을 표시합니다.' }
+                )
+                .setFooter({ text: '이 메시지는 1분 후에 자동으로 삭제됩니다.' });
+
+            const reply = await message.channel.send({ embeds: [embed] });
+            setTimeout(() => {
+                reply.delete().catch(console.error);
+                console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
+            }, 60000);
+            return;
+        }
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 명령어 처리 오류:`, err.message);
+        const errorMsg = await message.channel.send('명령어 처리 중 오류가 발생했습니다.\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.');
+        setTimeout(() => {
+            errorMsg.delete().catch(console.error);
+            console.log(`[${getKoreanTime()}] 메시지 삭제: ${errorMsg.id}`);
+        }, 60000);
     }
 });
 
