@@ -86,7 +86,7 @@ function getUpcomingBosses(now = new Date()) {
             }
 
             // 출력용 시간 문자열 생성 (6시간 뺀 시간으로 표시)
-            const displayDate = new Date(bossDate.getTime() - 6 * 60 * 60 * 1000);
+            const displayDate = new Date(bossDate.getTime() - 3 * 60 * 60 * 1000);
             const timeStr = `${displayDate.getHours().toString().padStart(2, '0')}:${displayDate.getMinutes().toString().padStart(2, '0')}`;
 
             possibleBosses.push({
