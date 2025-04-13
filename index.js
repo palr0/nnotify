@@ -313,6 +313,8 @@ client.on('messageCreate', async (message) => {
     }
 });
 
+// 기존 코드는 동일하므로 변경된 부분만 표시합니다.
+
 // 반응 추가 처리 (변경된 부분)
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
@@ -383,7 +385,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
     }
 });
 
-// 봇 준비 완료 시
+// 봇 준비 완료 시 (변경된 부분)
 client.once('ready', async () => {
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
 
@@ -408,15 +410,34 @@ client.once('ready', async () => {
                 try {
                     bossMessage = await bossAlertChannel.messages.fetch(savedMessageId);
                     
-                    // 기존 반응 수집
+                    // 기존 반응 수집 및 역할 자동 부여
                     const reactions = bossMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
                     if (reactions) {
                         const users = await reactions.users.fetch();
-                        users.forEach(user => {
+                        
+                        // 역할 생성 또는 확인
+                        let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+                        if (!role) {
+                            role = await guild.roles.create({
+                                name: ALERT_ROLE_NAME,
+                                mentionable: true,
+                                reason: '보스 알림을 위한 역할 자동 생성'
+                            });
+                        }
+                        
+                        // 등록된 사용자에게 역할 부여
+                        for (const [userId, user] of users) {
                             if (!user.bot) {
-                                alertUsers.add(user.id);
+                                try {
+                                    const member = await guild.members.fetch(userId);
+                                    await member.roles.add(role);
+                                    alertUsers.add(userId);
+                                    console.log(`[${getKoreanTime()}] ✅ ${user.tag} 기존 알림 등록자 역할 자동 부여`);
+                                } catch (err) {
+                                    console.error(`[${getKoreanTime()}] ❌ ${user.tag} 역할 부여 실패:`, err.message);
+                                }
                             }
-                        });
+                        }
                     }
                     
                     bossMessages.set(guildId, bossMessage);
