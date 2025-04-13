@@ -376,9 +376,22 @@ client.on('messageReactionRemove', async (reaction, user) => {
         const role = reaction.message.guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
 
         if (role) {
-            await member.roles.remove(role);
-            alertUsers.delete(user.id);
-            console.log(`[${getKoreanTime()}] 🔕 ${user.tag} 알림 해제 및 역할 제거`);
+            // 사용자가 여전히 역할을 가지고 있는지 확인
+            if (member.roles.cache.has(role.id)) {
+                await member.roles.remove(role);
+                alertUsers.delete(user.id);
+                console.log(`[${getKoreanTime()}] 🔕 ${user.tag} 알림 해제 및 역할 제거`);
+                
+                // 추가로, 이모지가 눌려져 있지 않은데 역할이 남아있는 경우를 확인
+                const reactions = targetMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
+                if (reactions) {
+                    const users = await reactions.users.fetch();
+                    if (!users.has(user.id)) {
+                        await member.roles.remove(role).catch(console.error);
+                        console.log(`[${getKoreanTime()}] 🔄 ${user.tag} 사용자가 이모지를 누르지 않았지만 역할이 남아있어 제거했습니다.`);
+                    }
+                }
+            }
         }
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 반응 제거 처리 오류:`, err.message);
@@ -490,7 +503,47 @@ client.once('ready', async () => {
     }
 });
 
-// ... (나머지 코드는 동일하게 유지)
+// 역할과 이모지 상태 동기화 함수
+async function syncRolesWithReactions(guild) {
+    try {
+        const role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+        if (!role) return;
+
+        const channel = guild.channels.cache.find(c => c.name === BOSS_CHANNEL_NAME);
+        if (!channel) return;
+
+        const guildId = guild.id;
+        const targetMessage = bossMessages.get(guildId);
+        if (!targetMessage) return;
+
+        // 이모지 반응 가져오기
+        const reactions = targetMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
+        if (!reactions) return;
+
+        const users = await reactions.users.fetch();
+        const reactingUserIds = new Set(users.filter(u => !u.bot).map(u => u.id));
+
+        // 역할을 가진 모든 멤버 가져오기
+        const membersWithRole = role.members;
+
+        // 역할은 있지만 이모지를 누르지 않은 멤버 찾기
+        for (const [memberId, member] of membersWithRole) {
+            if (!reactingUserIds.has(memberId)) {
+                await member.roles.remove(role).catch(console.error);
+                console.log(`[${getKoreanTime()}] 🔄 ${member.user.tag} 사용자가 이모지를 누르지 않았지만 역할이 남아있어 제거했습니다.`);
+            }
+        }
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 역할 동기화 실패:`, err.message);
+    }
+}
+
+// 주기적으로 역할 동기화 (예: 1시간마다)
+setInterval(() => {
+    client.guilds.cache.forEach(guild => {
+        syncRolesWithReactions(guild).catch(console.error);
+    });
+}, 3600000); // 1시간마다 실행
 
 // 봇 로그인
 client.login(process.env.TOKEN).catch(err => {
