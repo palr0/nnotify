@@ -385,12 +385,36 @@ client.on('messageReactionRemove', async (reaction, user) => {
     }
 });
 
+// ... (기존 코드는 동일하게 유지)
+
 // 봇 준비 완료 시 (변경된 부분)
 client.once('ready', async () => {
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
 
     for (const [guildId, guild] of client.guilds.cache) {
         try {
+            // 1. 역할 초기화 및 생성
+            let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+            if (!role) {
+                role = await guild.roles.create({
+                    name: ALERT_ROLE_NAME,
+                    mentionable: true,
+                    reason: '보스 알림을 위한 역할 자동 생성'
+                });
+                console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 ${ALERT_ROLE_NAME} 역할 생성 완료`);
+            } else {
+                // 기존 역할이 있는 경우 모든 멤버에서 역할 제거 (초기화)
+                const membersWithRole = role.members;
+                if (membersWithRole.size > 0) {
+                    const removePromises = membersWithRole.map(member => 
+                        member.roles.remove(role).catch(console.error)
+                    );
+                    await Promise.all(removePromises);
+                    console.log(`[${getKoreanTime()}] 🔄 ${guild.name} 서버의 기존 ${ALERT_ROLE_NAME} 역할 보유자 ${membersWithRole.size}명에서 역할 제거 완료`);
+                }
+            }
+
+            // 2. 채널 찾기
             const bossAlertChannel = guild.channels.cache.find(c => 
                 c.name === BOSS_CHANNEL_NAME && 
                 c.type === 0 && // 텍스트 채널
@@ -405,7 +429,7 @@ client.once('ready', async () => {
             let bossMessage = null;
             const savedMessageId = await getSavedMessageId(guildId);
 
-            // 저장된 메시지 불러오기 시도
+            // 3. 저장된 메시지 불러오기 시도
             if (savedMessageId) {
                 try {
                     bossMessage = await bossAlertChannel.messages.fetch(savedMessageId);
@@ -415,29 +439,24 @@ client.once('ready', async () => {
                     if (reactions) {
                         const users = await reactions.users.fetch();
                         
-                        // 역할 생성 또는 확인
-                        let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
-                        if (!role) {
-                            role = await guild.roles.create({
-                                name: ALERT_ROLE_NAME,
-                                mentionable: true,
-                                reason: '보스 알림을 위한 역할 자동 생성'
-                            });
-                        }
-                        
                         // 등록된 사용자에게 역할 부여
+                        const addRolePromises = [];
                         for (const [userId, user] of users) {
                             if (!user.bot) {
                                 try {
                                     const member = await guild.members.fetch(userId);
-                                    await member.roles.add(role);
-                                    alertUsers.add(userId);
-                                    console.log(`[${getKoreanTime()}] ✅ ${user.tag} 기존 알림 등록자 역할 자동 부여`);
+                                    addRolePromises.push(
+                                        member.roles.add(role).then(() => {
+                                            alertUsers.add(userId);
+                                            console.log(`[${getKoreanTime()}] ✅ ${user.tag} 기존 알림 등록자 역할 자동 부여`);
+                                        })
+                                    );
                                 } catch (err) {
                                     console.error(`[${getKoreanTime()}] ❌ ${user.tag} 역할 부여 실패:`, err.message);
                                 }
                             }
                         }
+                        await Promise.all(addRolePromises);
                     }
                     
                     bossMessages.set(guildId, bossMessage);
@@ -447,7 +466,7 @@ client.once('ready', async () => {
                 }
             }
 
-            // 새 메시지 생성
+            // 4. 새 메시지 생성 (기존 메시지가 없는 경우)
             if (!bossMessage) {
                 const embed = new EmbedBuilder()
                     .setColor(0x0099ff)
@@ -463,13 +482,15 @@ client.once('ready', async () => {
                 console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 새 메시지 생성: ${bossMessage.id}`);
             }
 
-            // 메시지 업데이트 시작
+            // 5. 메시지 업데이트 시작
             updateBossMessage(guildId, bossAlertChannel, bossMessage);
         } catch (guildErr) {
             console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
         }
     }
 });
+
+// ... (나머지 코드는 동일하게 유지)
 
 // 봇 로그인
 client.login(process.env.TOKEN).catch(err => {
