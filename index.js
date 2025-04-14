@@ -470,6 +470,10 @@ client.on('messageReactionRemove', async (reaction, user) => {
 // 봇 준비 완료 시 (변경된 부분)
 client.once('ready', async () => {
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
+    console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
+// 기존 인터벌 정리
+    updateIntervals.forEach(interval => clearInterval(interval));
+    updateIntervals.clear();
 
     for (const [guildId, guild] of client.guilds.cache) {
         try {
@@ -570,7 +574,7 @@ client.once('ready', async () => {
     }
 });
 
-// 역할과 이모지 상태 동기화 함수
+// 역할 동기화 함수
 async function syncRolesWithReactions(guild) {
     try {
         const role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
@@ -583,17 +587,14 @@ async function syncRolesWithReactions(guild) {
         const targetMessage = bossMessages.get(guildId);
         if (!targetMessage) return;
 
-        // 이모지 반응 가져오기
         const reactions = targetMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
         if (!reactions) return;
 
         const users = await reactions.users.fetch();
         const reactingUserIds = new Set(users.filter(u => !u.bot).map(u => u.id));
 
-        // 역할을 가진 모든 멤버 가져오기
         const membersWithRole = role.members;
 
-        // 역할은 있지만 이모지를 누르지 않은 멤버 찾기
         for (const [memberId, member] of membersWithRole) {
             if (!reactingUserIds.has(memberId)) {
                 await member.roles.remove(role).catch(console.error);
@@ -605,8 +606,13 @@ async function syncRolesWithReactions(guild) {
     }
 }
 
-// 주기적으로 역할 동기화 (예: 1시간마다)
+// 상태 모니터링 및 주기적 동기화
 setInterval(() => {
+    console.log(`[${getKoreanTime()}] ℹ️ 봇 상태: 
+        ${client.guilds.cache.size} 서버, 
+        ${client.ws.ping}ms 핑, 
+        ${process.memoryUsage().rss / 1024 / 1024}MB 메모리 사용`);
+
     client.guilds.cache.forEach(guild => {
         syncRolesWithReactions(guild).catch(console.error);
     });
@@ -618,9 +624,22 @@ client.login(process.env.TOKEN).catch(err => {
     process.exit(1);
 });
 
-// 종료 시 정리
-process.on('SIGINT', () => {
+// 종료 핸들러
+function cleanup() {
     console.log(`[${getKoreanTime()}] 🔴 봇 종료 중...`);
+    
+    // 모든 인터벌 정리
+    updateIntervals.forEach(interval => clearInterval(interval));
+    updateIntervals.clear();
+    
+    // 봇 연결 종료
     client.destroy();
     process.exit();
+}
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+process.on('uncaughtException', (err) => {
+    console.error(`[${getKoreanTime()}] ❌ 처리되지 않은 예외:`, err);
+    cleanup();
 });
