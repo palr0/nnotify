@@ -18,10 +18,14 @@ app.listen(PORT, () => {
     
     // 15분마다 자기 자신을 호출 (선택 사항)
     if (process.env.RENDER) {
-        setInterval(() => {
-            fetch(`https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:'+PORT}/ping`)
-                .catch(err => console.error('핑 실패:', err));
-        }, 14 * 60 * 1000); // 14분마다 호출
+        // server.js 수정
+setInterval(() => {
+    const baseUrl = process.env.RENDER 
+        ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+        : `http://localhost:${PORT}`;
+    fetch(`${baseUrl}/ping`)
+        .catch(err => console.error('핑 실패:', err));
+}, 14 * 60 * 1000);
     }
 });
 
