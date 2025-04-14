@@ -150,6 +150,66 @@ async function saveMessageId(guildId, messageId) {
     }
 }
 
+// 이모지 등록자 확인 및 알림 전송 함수 추가
+async function checkEmojiReactionsAndNotify(guild) {
+    try {
+        const guildId = guild.id;
+        const targetMessage = bossMessages.get(guildId);
+        if (!targetMessage) return;
+
+        // 채널 확인
+        const channel = targetMessage.channel;
+        if (!channel) return;
+
+        // 역할 확인
+        const role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+        if (!role) return;
+
+        // 이모지 반응 가져오기
+        const reactions = targetMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
+        if (!reactions) return;
+
+        // 반응한 사용자 목록 가져오기
+        const users = await reactions.users.fetch();
+        const reactingUserIds = new Set(users.filter(u => !u.bot).map(u => u.id));
+
+        // 역할을 가진 모든 멤버 가져오기
+        const membersWithRole = role.members;
+
+        // 1. 역할은 있지만 이모지를 누르지 않은 멤버에서 역할 제거
+        for (const [memberId, member] of membersWithRole) {
+            if (!reactingUserIds.has(memberId)) {
+                await member.roles.remove(role).catch(console.error);
+                console.log(`[${getKoreanTime()}] 🔄 ${member.user.tag} 사용자가 이모지를 누르지 않았지만 역할이 남아있어 제거했습니다.`);
+            }
+        }
+
+        // 2. 이모지를 눌렀지만 역할이 없는 멤버에게 역할 부여
+        for (const userId of reactingUserIds) {
+            try {
+                const member = await guild.members.fetch(userId);
+                if (!member.roles.cache.has(role.id)) {
+                    await member.roles.add(role);
+                    console.log(`[${getKoreanTime()}] ✅ ${member.user.tag} 사용자에게 알림 역할 부여 (이모지 등록 확인)`);
+                }
+            } catch (err) {
+                console.error(`[${getKoreanTime()}] ❌ ${userId} 사용자 역할 부여 실패:`, err.message);
+            }
+        }
+
+        // 3. 다음 보스 알림을 위해 등록된 사용자 목록 업데이트
+        alertUsers.clear();
+        for (const userId of reactingUserIds) {
+            alertUsers.add(userId);
+        }
+
+        console.log(`[${getKoreanTime()}] 🔍 ${guild.name} 서버 이모지 상태 확인 완료: ${reactingUserIds.size}명 등록`);
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 이모지 상태 확인 실패:`, err.message);
+    }
+}
+
+// 기존 updateBossMessage 함수 수정
 async function updateBossMessage(guildId, channel, initialMessage) {
     // 기존 인터벌 제거
     if (updateIntervals.has(guildId)) {
@@ -182,6 +242,9 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                 await bossMessage.edit({ embeds: [embed] });
             }
 
+            // 매번 업데이트 시 이모지 상태 확인
+            await checkEmojiReactionsAndNotify(channel.guild);
+
             // 1분 전 알림 로직 (10초마다 확인)
             const timeUntilBoss = nextBoss.date.getTime() - now.getTime();
             
@@ -202,6 +265,9 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 
                 // 이미 알림을 보냈는지 확인 (중복 알림 방지)
                 if (!bossMessages.has(`${guildId}_alert_${nextBoss.boss}_${nextBoss.timeStr}`)) {
+                    // 등록된 사용자만 멘션하기 위해 사용자 ID 목록 생성
+                    const mentions = Array.from(alertUsers).map(id => `<@${id}>`).join(' ');
+
                     const alertEmbed = new EmbedBuilder()
                         .setColor(0xFF0000)
                         .setTitle('⚠️ 보스 알림 ⚠️')
@@ -213,9 +279,9 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                         .setFooter({ text: `출현 예정 시간: ${nextBoss.timeStr}` });
 
                     const alertMessage = await channel.send({ 
-                        content: `**${nextBoss.boss}**가 ${bossLocations[nextBoss.boss]}에 1분 후 출현합니다! <@&${role.id}>`,
+                        content: `**${nextBoss.boss}**가 ${bossLocations[nextBoss.boss]}에 1분 후 출현합니다! ${mentions}`,
                         embeds: [alertEmbed],
-                        allowedMentions: { roles: [role.id] }
+                        allowedMentions: { users: Array.from(alertUsers) }
                     });
                     
                     console.log(`[${getKoreanTime()}] 🔔 1분 전 알림 전송: ${nextBoss.boss} (${membersWithRole}명에게 전송)`);
@@ -239,6 +305,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 
     updateIntervals.set(guildId, intervalId);
 }
+
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return; // 봇 메시지 무시
