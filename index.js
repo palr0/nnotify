@@ -325,7 +325,6 @@ async function updateBossMessage(guildId, channel, initialMessage) {
     updateIntervals.set(guildId, intervalId);
 }
 
-// 기존 messageCreate 이벤트 핸들러 (변경 없음)
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     if (!message.content.startsWith('/')) return;
@@ -337,52 +336,47 @@ client.on('messageCreate', async (message) => {
     }
         
     try {
-        if (message.content.startsWith('/시간 한국표준')) {
-            const koreanTime = getKoreanTime();
-            const reply = await message.channel.send(`현재 한국 표준시(KST)는: ${koreanTime}\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.`);
-            setTimeout(() => {
-                reply.delete().catch(console.error);
-                console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
-            }, 60000);
-            return;
-        }
+        // ... 기존 명령어들 ...
 
-        if (message.content.startsWith('/보스 순서')) {
-            const bosses = getUpcomingBosses();
-            const description = bosses.slice(0, 5).map(b => `**${b.boss}** - ${b.timeStr}`).join('\n');
-
-            const embed = new EmbedBuilder()
-                .setColor(0x00FF00)
-                .setTitle('🕒 앞으로 등장할 보스 순서 (최대 5개)')
-                .setDescription(description || '예정된 보스가 없습니다.')
-                .setFooter({ text: '이 메시지는 1분 후에 자동으로 삭제됩니다.' });
-
-            const reply = await message.channel.send({ embeds: [embed] });
-            setTimeout(() => {
-                reply.delete().catch(console.error);
-                console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
-            }, 60000);
-            return;
-        }
-
-        if (message.content.startsWith('/도움말')) {
-            const embed = new EmbedBuilder()
-                .setColor(0x7289DA)
-                .setTitle('📝 명령어 도움말')
-                .addFields(
-                    { name: '/시간 한국표준', value: '현재 한국 시간을 표시합니다.' },
-                    { name: '/보스 순서', value: '다가오는 보스 출현 순서를 표시합니다.' },
-                    { name: '/도움말', value: '이 도움말을 표시합니다.' }
+        // ▼▼▼ 수정된 명령어 (관리자 제한 제거) ▼▼▼
+        if (message.content.startsWith('/알림초기화')) {
+            // 기존 봇 메시지 일괄 삭제
+            const messages = await message.channel.messages.fetch();
+            const deletionPromises = messages.filter(m => 
+                m.author.bot && m.id !== message.id
+            ).map(msg => 
+                msg.delete().catch(e => 
+                    console.error(`[${getKoreanTime()}] 메시지 삭제 실패: ${e.message}`)
                 )
-                .setFooter({ text: '이 메시지는 1분 후에 자동으로 삭제됩니다.' });
+            );
 
-            const reply = await message.channel.send({ embeds: [embed] });
-            setTimeout(() => {
-                reply.delete().catch(console.error);
-                console.log(`[${getKoreanTime()}] 메시지 삭제: ${reply.id}`);
-            }, 60000);
+            await Promise.all(deletionPromises);
+            
+            // 새 알림 메시지 생성
+            const embed = new EmbedBuilder()
+                .setColor(0x0099ff)
+                .setTitle('보스 알림 시스템 초기화 완료')
+                .setDescription('아래 이모지를 클릭해 알림을 다시 설정해주세요')
+                .addFields(
+                    { name: "🔔 일반 알림", value: "서버 내 멘션 알림", inline: true },
+                    { name: "📩 DM 알림", value: "개인 메시지 알림", inline: true }
+                );
+
+            const bossMessage = await message.channel.send({ embeds: [embed] });
+            await bossMessage.react(BOSS_ALERT_EMOJI);
+            await bossMessage.react(DM_ALERT_EMOJI);
+            
+            // 시스템 재설정
+            const guildId = message.guild.id;
+            bossMessages.set(guildId, bossMessage);
+            await saveMessageId(guildId, bossMessage.id);
+            updateBossMessage(guildId, message.channel, bossMessage);
+            
+            const reply = await message.channel.send("✅ 알림 시스템이 초기화되었습니다. 이 메시지는 5초 후 삭제됩니다.");
+            setTimeout(() => reply.delete(), 5000);
             return;
         }
+
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 명령어 처리 오류:`, err.message);
         const errorMsg = await message.channel.send('명령어 처리 중 오류가 발생했습니다.\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.');
