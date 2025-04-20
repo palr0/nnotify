@@ -315,6 +315,63 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                     setTimeout(() => {
                         bossMessages.delete(`${guildId}_alert_${nextBoss.boss}_${nextBoss.timeStr}`);
                     }, 60000);
+
+                    // 위더와 쿵푸에 대해 25분 후 쿨타임 알림 추가
+                    if (nextBoss.boss === '위더' || nextBoss.boss === '쿵푸') {
+                        setTimeout(async () => {
+                            const role = channel.guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
+                            if (!role) return;
+
+                            const membersWithRole = role.members.size;
+                            if (membersWithRole === 0 && dmAlertUsers.size === 0) return;
+
+                            const cooldownAlertEmbed = new EmbedBuilder()
+                                .setColor(0x00FF00)
+                                .setTitle('🔄 보스 쿨타임 알림')
+                                .setDescription(`**${nextBoss.boss}** 보스 쿨타임이 돌아왔습니다. 확인해주세요!`)
+                                .addFields(
+                                    { name: "위치", value: bossLocations[nextBoss.boss], inline: true },
+                                    { name: "알림", value: "이 알림은 1분 후에 자동으로 삭제됩니다.", inline: false }
+                                );
+
+                            // 일반 알림
+                            if (membersWithRole > 0) {
+                                const mentions = Array.from(alertUsers).map(id => `<@${id}>`).join(' ');
+                                const cooldownAlertMessage = await channel.send({
+                                    content: `**${nextBoss.boss}** 보스 쿨타임이 돌아왔습니다! ${mentions}`,
+                                    embeds: [cooldownAlertEmbed],
+                                    allowedMentions: { users: Array.from(alertUsers) }
+                                });
+
+                                setTimeout(() => {
+                                    cooldownAlertMessage.delete().catch(console.error);
+                                }, 60000);
+                            }
+
+                            // DM 알림
+                            if (dmAlertUsers.size > 0) {
+                                for (const userId of dmAlertUsers) {
+                                    try {
+                                        const user = await client.users.fetch(userId);
+                                        const dmCooldownEmbed = new EmbedBuilder()
+                                            .setColor(0x00FF00)
+                                            .setTitle('📩 보스 쿨타임 알림')
+                                            .setDescription(`**${nextBoss.boss}** 보스 쿨타임이 돌아왔습니다.`)
+                                            .addFields(
+                                                { name: "위치", value: bossLocations[nextBoss.boss], inline: true },
+                                                { name: "서버", value: channel.guild.name, inline: true }
+                                            );
+                                        
+                                        await user.send({ embeds: [dmCooldownEmbed] });
+                                    } catch (dmErr) {
+                                        console.error(`[${getKoreanTime()}] ❌ ${userId} 사용자에게 DM 전송 실패:`, dmErr.message);
+                                    }
+                                }
+                            }
+
+                            console.log(`[${getKoreanTime()}] 🔄 ${nextBoss.boss} 쿨타임 알림 전송 완료`);
+                        }, 25 * 60 * 1000); // 25분 후 알림
+                    }
                 }
             }
         } catch (err) {
