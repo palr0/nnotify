@@ -419,7 +419,7 @@ async function handlePartyCommand(interaction) {
             const messages = await interaction.channel.messages.fetch({ limit: 100 });
             await Promise.all(messages.map(msg => 
                 msg.delete().catch(e => console.error(`메시지 삭제 실패: ${e.message}`))
-            );
+            ));
             const reply = await interaction.reply({ content: "채널이 초기화되었습니다.", ephemeral: true });
             setTimeout(() => reply.delete(), 5000);
         }
