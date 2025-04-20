@@ -582,143 +582,144 @@ const client = new Client({
 async function registerCommands() {
     try {
         const commands = [
-            new SlashCommandBuilder()
-                .setName('클리어')
-                .setDescription('레이드 클리어 정보 관리')
-                .addSubcommand(subcommand =>
-                    subcommand
-                        .setName('등록')
-                        .setDescription('클리어 정보 등록')
-                        .addStringOption(option =>
-                            option.setName('보스')
-                                .setDescription('보스 이름')
-                                .setRequired(true)
-                                .addChoices(
-                                    { name: '엑소', value: '엑소' },
-                                    { name: '테라', value: '테라' }
-                                ))
-                        .addStringOption(option =>
-                            option.setName('난이도')
-                                .setDescription('난이도 선택')
-                                .setRequired(true)
-                                .addChoices(
-                                    { name: '노말', value: '노말' },
-                                    { name: '하드', value: '하드' },
-                                    { name: '노말하드', value: '노말하드' }
-                                ))
-                        .addStringOption(option =>
-                            option.setName('닉네임')
-                                .setDescription('닉네임 (기본값: 본인 닉네임)')
-                                .setRequired(false))
-                .addSubcommand(subcommand =>
-                    subcommand
-                        .setName('제거')
-                        .setDescription('클리어 정보 제거')
-                        .addStringOption(option =>
-                            option.setName('닉네임')
-                                .setDescription('닉네임 (기본값: 본인 닉네임)')
-                                .setRequired(false))),
-            
-            new SlashCommandBuilder()
-                .setName('파티')
-                .setDescription('파티 관리 시스템')
-                .addSubcommand(subcommand =>
-                    subcommand
-                        .setName('생성')
-                        .setDescription('새 파티 생성')
-                        .addStringOption(option =>
-                            option.setName('제목')
-                                .setDescription('파티 제목')
-                                .setRequired(true)))
-                .addSubcommandGroup(group =>
-                    group
-                        .setName('제목')
-                        .setDescription('파티 제목 변경')
-                        .addSubcommand(subcommand =>
-                            subcommand
-                                .setName('변경')
+    new SlashCommandBuilder()
+        .setName('클리어')
+        .setDescription('레이드 클리어 정보 관리')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('등록')
+                .setDescription('클리어 정보 등록')
+                .addStringOption(option =>
+                    option.setName('보스')
+                        .setDescription('보스 이름')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: '엑소', value: '엑소' },
+                            { name: '테라', value: '테라' }
+                        ))
+                .addStringOption(option =>
+                    option.setName('난이도')
+                        .setDescription('난이도 선택')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: '노말', value: '노말' },
+                            { name: '하드', value: '하드' },
+                            { name: '노말하드', value: '노말하드' }
+                        ))
+                .addStringOption(option =>
+                    option.setName('닉네임')
+                        .setDescription('닉네임 (기본값: 본인 닉네임)')
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('제거')
+                .setDescription('클리어 정보 제거')
+                .addStringOption(option =>
+                    option.setName('닉네임')
+                        .setDescription('닉네임 (기본값: 본인 닉네임)')
+                        .setRequired(false))),
+    
+    new SlashCommandBuilder()
+        .setName('파티')
+        .setDescription('파티 관리 시스템')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('생성')
+                .setDescription('새 파티 생성')
+                .addStringOption(option =>
+                    option.setName('제목')
+                        .setDescription('파티 제목')
+                        .setRequired(true)))
+                        .addSubcommandGroup(group =>
+                            group
+                                .setName('제목')
                                 .setDescription('파티 제목 변경')
-                                .addStringOption(option =>
-                                    option.setName('기존제목')
-                                        .setDescription('기존 파티 제목')
-                                        .setRequired(true))
-                                .addStringOption(option =>
-                                    option.setName('새제목')
-                                        .setDescription('새 파티 제목')
-                                        .setRequired(true))))
-                .addSubcommandGroup(group =>
-                    group
-                        .setName('목록')
-                        .setDescription('파티 멤버 관리')
-                        .addSubcommand(subcommand =>
-                            subcommand
-                                .setName('등록')
-                                .setDescription('파티 멤버 추가')
-                                .addStringOption(option =>
-                                    option.setName('파티제목')
-                                        .setDescription('파티 제목')
-                                        .setRequired(true))
-                                .addStringOption(option =>
-                                    option.setName('이름')
-                                        .setDescription('추가할 멤버 이름')
-                                        .setRequired(true)))
+                                .addSubcommand(subcommand =>
+                                    subcommand
+                                        .setName('변경')
+                                        .setDescription('파티 제목 변경')
+                                        .addStringOption(option =>
+                                            option.setName('기존제목')
+                                                .setDescription('기존 파티 제목')
+                                                .setRequired(true))
+                                        .addStringOption(option =>
+                                            option.setName('새제목')
+                                                .setDescription('새 파티 제목')
+                                                .setRequired(true))))
+                        .addSubcommandGroup(group =>
+                            group
+                                .setName('목록')
+                                .setDescription('파티 멤버 관리')
+                                .addSubcommand(subcommand =>
+                                    subcommand
+                                        .setName('등록')
+                                        .setDescription('파티 멤버 추가')
+                                        .addStringOption(option =>
+                                            option.setName('파티제목')
+                                                .setDescription('파티 제목')
+                                                .setRequired(true))
+                                        .addStringOption(option =>
+                                            option.setName('이름')
+                                                .setDescription('추가할 멤버 이름')
+                                                .setRequired(true)))
+                                .addSubcommand(subcommand =>
+                                    subcommand
+                                        .setName('제거')
+                                        .setDescription('파티 멤버 제거')
+                                        .addStringOption(option =>
+                                            option.setName('파티제목')
+                                                .setDescription('파티 제목')
+                                                .setRequired(true))
+                                        .addStringOption(option =>
+                                            option.setName('이름')
+                                                .setDescription('제거할 멤버 이름')
+                                                .setRequired(true))))
+                        .addSubcommandGroup(group =>
+                            group
+                                .setName('일정')
+                                .setDescription('파티 일정 관리')
+                                .addSubcommand(subcommand =>
+                                    subcommand
+                                        .setName('등록')
+                                        .setDescription('파티 일정 등록')
+                                        .addStringOption(option =>
+                                            option.setName('파티제목')
+                                                .setDescription('파티 제목')
+                                                .setRequired(true))
+                                        .addStringOption(option =>
+                                            option.setName('내용')
+                                                .setDescription('일정 내용')
+                                                .setRequired(true)))
+                                .addSubcommand(subcommand =>
+                                    subcommand
+                                        .setName('변경')
+                                        .setDescription('파티 일정 변경')
+                                        .addStringOption(option =>
+                                            option.setName('파티제목')
+                                                .setDescription('파티 제목')
+                                                .setRequired(true))
+                                        .addStringOption(option =>
+                                            option.setName('내용')
+                                                .setDescription('새 일정 내용')
+                                                .setRequired(true))))
                         .addSubcommand(subcommand =>
                             subcommand
                                 .setName('제거')
-                                .setDescription('파티 멤버 제거')
+                                .setDescription('파티 삭제')
                                 .addStringOption(option =>
                                     option.setName('파티제목')
-                                        .setDescription('파티 제목')
-                                        .setRequired(true))
-                                .addStringOption(option =>
-                                    option.setName('이름')
-                                        .setDescription('제거할 멤버 이름')
-                                        .setRequired(true))))
-                .addSubcommandGroup(group =>
-                    group
-                        .setName('일정')
-                        .setDescription('파티 일정 관리')
-                        .addSubcommand(subcommand =>
-                            subcommand
-                                .setName('등록')
-                                .setDescription('파티 일정 등록')
-                                .addStringOption(option =>
-                                    option.setName('파티제목')
-                                        .setDescription('파티 제목')
-                                        .setRequired(true))
-                                .addStringOption(option =>
-                                    option.setName('내용')
-                                        .setDescription('일정 내용')
+                                        .setDescription('삭제할 파티 제목')
                                         .setRequired(true)))
                         .addSubcommand(subcommand =>
                             subcommand
-                                .setName('변경')
-                                .setDescription('파티 일정 변경')
-                                .addStringOption(option =>
-                                    option.setName('파티제목')
-                                        .setDescription('파티 제목')
-                                        .setRequired(true))
-                                .addStringOption(option =>
-                                    option.setName('내용')
-                                        .setDescription('새 일정 내용')
-                                        .setRequired(true))))
-                .addSubcommand(subcommand =>
-                    subcommand
-                        .setName('제거')
-                        .setDescription('파티 삭제')
-                        .addStringOption(option =>
-                            option.setName('파티제목')
-                                .setDescription('삭제할 파티 제목')
-                                .setRequired(true)))
-                .addSubcommand(subcommand =>
-                    subcommand
-                        .setName('채널초기화')
-                        .setDescription('파티 채널 초기화')),
-            
-            new SlashCommandBuilder()
-                .setName('알림초기화')
-                .setDescription('보스 알림 시스템 초기화'),
-        ];
+                                .setName('채널초기화')
+                                .setDescription('파티 채널 초기화'))
+                                .toJSON(),
+                    new SlashCommandBuilder()
+                        .setName('알림초기화')
+                        .setDescription('보스 알림 시스템 초기화')
+                        .toJSON()
+                        ];
 
         const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
@@ -938,7 +939,7 @@ client.once('ready', async () => {
                 if (membersWithRole.size > 0) {
                     await Promise.all(membersWithRole.map(member => 
                         member.roles.remove(role).catch(console.error)
-                    );
+                    ));
                     console.log(`[${getKoreanTime()}] 🔄 ${guild.name} 서버의 기존 ${ALERT_ROLE_NAME} 역할 보유자 ${membersWithRole.size}명에서 역할 제거 완료`);
                 }
             }
