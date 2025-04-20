@@ -19,7 +19,7 @@ const RAID_BOSSES = ['엑소', '테라'];
 const DIFFICULTIES = ['노말', '하드', '노말하드'];
 // REST 인스턴스를 전역으로 선언
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
+//client = commands.Bot(command_prefix = '-')
 
 // 검증
 if (!process.env.TOKEN) throw new Error("TOKEN 환경 변수가 필요합니다.");
@@ -1122,6 +1122,7 @@ async function resetAllClearData() {
 }
 
 client.once('ready', async () => {
+    await client.change_presence(activity=discord.Game(name="거지 길드 봇, 제작 펄"))
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
     
