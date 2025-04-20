@@ -8,33 +8,29 @@ dotenv.config();
 
 // 상수 정의
 const BOSS_CHANNEL_NAME = '🔔-보스알림';
+const CLEAR_CHANNEL_NAME = '클리어확인';
+const PARTY_CHANNEL_NAME = '파티명단＃레이드';
 const ALERT_ROLE_NAME = '보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
-const DM_ALERT_EMOJI = '📩';  // 추가된 이모지
-const UPDATE_INTERVAL_MS = 10000; // 10초
+const DM_ALERT_EMOJI = '📩';
+const UPDATE_INTERVAL_MS = 10000;
+const RAID_BOSSES = ['엑소', '테라'];
+const DIFFICULTIES = ['노말', '하드', '노말하드'];
 
 // 검증
 if (!process.env.TOKEN) throw new Error("TOKEN 환경 변수가 필요합니다.");
 if (!process.env.JSONBIN_API_KEY) throw new Error("JSONBIN_API_KEY 환경 변수가 필요합니다.");
 if (!process.env.JSONBIN_BIN_ID) throw new Error("JSONBIN_BIN_ID 환경 변수가 필요합니다.");
 
+// 데이터 저장 구조
 const bossMessages = new Map();
 const alertUsers = new Set();
-const dmAlertUsers = new Set();  // DM 알림을 원하는 사용자 저장
+const dmAlertUsers = new Set();
 const updateIntervals = new Map();
+const clearData = new Map();
+const partyData = new Map();
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.DirectMessages  // DM을 위해 추가
-    ]
-});
-
-// 보스 스케줄 정의 (기존 코드와 동일)
+// 보스 스케줄 정의
 const bossSchedule = [
     { minute: 0, boss: '그루트킹' },
     { minute: 30, boss: '해적 선장' },
@@ -55,7 +51,7 @@ const bossLocations = {
     '세르칸': '7-5 지역'
 };
 
-// 한국 시간 형식으로 변환 (기존 코드와 동일)
+// 한국 시간 형식으로 변환
 function getKoreanTime(date = new Date()) {
     const adjustedDate = new Date(date.getTime() - 3 * 60 * 60 * 1000);
     return adjustedDate.toLocaleString('ko-KR', { 
@@ -70,7 +66,7 @@ function getKoreanTime(date = new Date()) {
     });
 }
 
-// 다음 보스 목록 가져오기 (기존 코드와 동일)
+// 다음 보스 목록 가져오기
 function getUpcomingBosses(now = new Date()) {
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
@@ -107,7 +103,7 @@ function getUpcomingBosses(now = new Date()) {
     return possibleBosses;
 }
 
-// JSONBin에서 데이터 가져오기 (기존 코드와 동일)
+// JSONBin에서 데이터 가져오기
 async function getSavedMessageId(guildId) {
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
@@ -120,7 +116,7 @@ async function getSavedMessageId(guildId) {
     }
 }
 
-// JSONBin에 데이터 저장 (기존 코드와 동일)
+// JSONBin에 데이터 저장
 async function saveMessageId(guildId, messageId) {
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
@@ -141,6 +137,231 @@ async function saveMessageId(guildId, messageId) {
         console.log(`[${getKoreanTime()}] ✅ 메시지 ID 저장됨 (${guildId}): ${messageId}`);
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 메시지 ID 저장 실패:`, err.message);
+    }
+}
+
+// 클리어 명령어 처리
+async function handleClearCommand(message) {
+    const args = message.content.split(/\s+/);
+    const command = args[1];
+    const bossName = args[2];
+    const difficulty = args[3];
+    const username = args[4] || message.author.username;
+
+    if (!command) {
+        const reply = await message.channel.send("사용법: /클 [엑소/테라] [노말/하드/노말하드] 또는 /클 제거 [닉네임]");
+        setTimeout(() => reply.delete(), 5000);
+        return;
+    }
+
+    const guildId = message.guild.id;
+    if (!clearData.has(guildId)) {
+        clearData.set(guildId, {
+            '엑소': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() },
+            '테라': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() }
+        });
+    }
+
+    const guildData = clearData.get(guildId);
+
+    if (command === '제거') {
+        let removed = false;
+        for (const boss of RAID_BOSSES) {
+            for (const diff of DIFFICULTIES) {
+                if (guildData[boss][diff].has(username)) {
+                    guildData[boss][diff].delete(username);
+                    removed = true;
+                }
+            }
+        }
+
+        if (removed) {
+            const reply = await message.channel.send(`${username} 님을 모든 클리어 목록에서 제거했습니다.`);
+            setTimeout(() => reply.delete(), 3000);
+        } else {
+            const reply = await message.channel.send(`${username} 님은 클리어 목록에 없습니다.`);
+            setTimeout(() => reply.delete(), 3000);
+        }
+    } else {
+        if (!RAID_BOSSES.includes(bossName)) {
+            const reply = await message.channel.send("보스 이름은 '엑소' 또는 '테라'만 가능합니다.");
+            setTimeout(() => reply.delete(), 3000);
+            return;
+        }
+
+        if (!DIFFICULTIES.includes(difficulty)) {
+            const reply = await message.channel.send("난이도는 '노말', '하드', '노말하드'만 가능합니다.");
+            setTimeout(() => reply.delete(), 3000);
+            return;
+        }
+
+        if (difficulty === '노말하드') {
+            guildData[bossName]['노말'].add(username);
+            guildData[bossName]['하드'].add(username);
+        } else {
+            guildData[bossName][difficulty].add(username);
+        }
+
+        const reply = await message.channel.send(`${username} 님이 ${bossName} ${difficulty} 클리어 목록에 추가되었습니다.`);
+        setTimeout(() => reply.delete(), 3000);
+    }
+
+    await updateClearMessage(message.channel, guildId);
+}
+
+// 클리어 목록 업데이트
+async function updateClearMessage(channel, guildId) {
+    const guildData = clearData.get(guildId) || {
+        '엑소': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() },
+        '테라': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() }
+    };
+
+    let messageContent = '';
+    for (const boss of RAID_BOSSES) {
+        messageContent += `\n\n**${boss} 클리어명단**`;
+        for (const diff of DIFFICULTIES) {
+            if (diff === '노말하드') continue;
+            const users = Array.from(guildData[boss][diff]).join('\n');
+            if (users) messageContent += `\n${diff}:\n${users}`;
+        }
+    }
+
+    const messages = await channel.messages.fetch({ limit: 10 });
+    const clearMessage = messages.find(m => m.author.bot && m.content.includes('클리어명단'));
+
+    if (clearMessage) {
+        await clearMessage.edit(messageContent.trim());
+    } else {
+        await channel.send(messageContent.trim());
+    }
+}
+
+// 파티 명령어 처리
+async function handlePartyCommand(message) {
+    const args = message.content.split(/\s+/);
+    const command = args[1];
+
+    if (!command) {
+        const reply = await message.channel.send(
+            "사용법:\n" +
+            "/파티 생성 [제목]\n" +
+            "/파티 제목 변경 [기존제목] [새제목]\n" +
+            "/파티 목록 등록 [파티제목] [이름]\n" +
+            "/파티 목록 제거 [파티제목] [이름]\n" +
+            "/파티 일정 [파티제목] [내용]\n" +
+            "/파티 일정 변경 [파티제목] [내용]\n" +
+            "/파티 제거 [파티제목]\n" +
+            "/파티 채널 초기화"
+        );
+        setTimeout(() => reply.delete(), 10000);
+        return;
+    }
+
+    const guildId = message.guild.id;
+    if (!partyData.has(guildId)) {
+        partyData.set(guildId, {});
+    }
+
+    const guildParties = partyData.get(guildId);
+
+    try {
+        switch (command) {
+            case '생성':
+                const partyName = args.slice(2).join(' ');
+                if (!partyName) throw new Error("파티 제목을 입력해주세요.");
+                if (guildParties[partyName]) throw new Error("이미 존재하는 파티 제목입니다.");
+                guildParties[partyName] = { members: new Set(), schedule: '' };
+                await message.channel.send(`파티 '${partyName}'가 생성되었습니다.`);
+                break;
+
+            case '제목':
+                if (args[2] !== '변경') break;
+                const oldName = args[3];
+                const newName = args.slice(4).join(' ');
+                if (!guildParties[oldName]) throw new Error("존재하지 않는 파티 제목입니다.");
+                guildParties[newName] = guildParties[oldName];
+                delete guildParties[oldName];
+                await message.channel.send(`파티 제목이 '${oldName}'에서 '${newName}'(으)로 변경되었습니다.`);
+                break;
+
+            case '목록':
+                const subCommand = args[2];
+                const targetParty = args[3];
+                const name = args.slice(4).join(' ');
+                
+                if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
+                
+                if (subCommand === '등록') {
+                    guildParties[targetParty].members.add(name);
+                    await message.channel.send(`'${name}'님이 파티 '${targetParty}'에 추가되었습니다.`);
+                } else if (subCommand === '제거') {
+                    guildParties[targetParty].members.delete(name);
+                    await message.channel.send(`'${name}'님이 파티 '${targetParty}'에서 제거되었습니다.`);
+                }
+                break;
+
+            case '일정':
+                const partyForSchedule = args[2];
+                const scheduleContent = args.slice(3).join(' ');
+                
+                if (args[2] === '변경') {
+                    const partyToChange = args[3];
+                    const newSchedule = args.slice(4).join(' ');
+                    
+                    if (!guildParties[partyToChange]) throw new Error("존재하지 않는 파티 제목입니다.");
+                    guildParties[partyToChange].schedule = newSchedule;
+                    await message.channel.send(`파티 '${partyToChange}'의 일정이 변경되었습니다.`);
+                } else {
+                    if (!guildParties[partyForSchedule]) throw new Error("존재하지 않는 파티 제목입니다.");
+                    guildParties[partyForSchedule].schedule = scheduleContent;
+                    await message.channel.send(`파티 '${partyForSchedule}'의 일정이 설정되었습니다.`);
+                }
+                break;
+
+            case '제거':
+                const partyToRemove = args.slice(2).join(' ');
+                if (!guildParties[partyToRemove]) throw new Error("존재하지 않는 파티 제목입니다.");
+                delete guildParties[partyToRemove];
+                await message.channel.send(`파티 '${partyToRemove}'가 삭제되었습니다.`);
+                break;
+
+            case '채널':
+                if (args[2] === '초기화') {
+                    const messages = await message.channel.messages.fetch({ limit: 100 });
+                    await Promise.all(messages.map(msg => 
+                        msg.delete().catch(e => console.error(`메시지 삭제 실패: ${e.message}`))
+                    );
+                    await message.channel.send("채널이 초기화되었습니다. 이 메시지는 5초 후 삭제됩니다.");
+                    setTimeout(() => message.channel.lastMessage?.delete(), 5000);
+                }
+                break;
+
+            default:
+                throw new Error("알 수 없는 명령어입니다.");
+        }
+
+        await updatePartyMessages(message.channel, guildId);
+    } catch (err) {
+        const reply = await message.channel.send(`오류: ${err.message}\n이 메시지는 5초 후 삭제됩니다.`);
+        setTimeout(() => reply.delete(), 5000);
+    }
+}
+
+// 파티 목록 업데이트
+async function updatePartyMessages(channel, guildId) {
+    const guildParties = partyData.get(guildId) || {};
+    const messages = await channel.messages.fetch({ limit: 50 });
+    await Promise.all(messages.filter(m => m.author.bot).map(msg => 
+        msg.delete().catch(console.error)
+    ));
+
+    for (const [partyName, partyInfo] of Object.entries(guildParties)) {
+        let content = `**${partyName}**\n\n`;
+        content += partyInfo.members.size > 0 
+            ? Array.from(partyInfo.members).join('\n') + '\n\n' 
+            : "멤버 없음\n\n";
+        content += `일정: ${partyInfo.schedule || "없음"}`;
+        await channel.send(content);
     }
 }
 
@@ -382,10 +603,34 @@ async function updateBossMessage(guildId, channel, initialMessage) {
     updateIntervals.set(guildId, intervalId);
 }
 
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages
+    ]
+});
+
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     if (!message.content.startsWith('/')) return;
 
+    // 클리어확인 채널 명령어 처리
+    if (message.channel.name === CLEAR_CHANNEL_NAME && message.content.startsWith('/클')) {
+        await handleClearCommand(message);
+        return;
+    }
+
+    // 파티명단 채널 명령어 처리
+    if (message.channel.name === PARTY_CHANNEL_NAME && message.content.startsWith('/파티')) {
+        await handlePartyCommand(message);
+        return;
+    }
+
+    // 보스알림 채널 명령어 처리
     if (message.channel.name !== BOSS_CHANNEL_NAME) {
         const reply = await message.channel.send("⚠️ 이 명령어는 #보스알림 채널에서만 사용 가능합니다.");
         setTimeout(() => reply.delete(), 3000);
@@ -565,7 +810,7 @@ client.once('ready', async () => {
 
     for (const [guildId, guild] of client.guilds.cache) {
         try {
-            // 역할 초기화 및 생성 (기존 코드와 동일)
+            // 역할 초기화
             let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
             if (!role) {
                 role = await guild.roles.create({
@@ -577,87 +822,92 @@ client.once('ready', async () => {
             } else {
                 const membersWithRole = role.members;
                 if (membersWithRole.size > 0) {
-                    const removePromises = membersWithRole.map(member => 
+                    await Promise.all(membersWithRole.map(member => 
                         member.roles.remove(role).catch(console.error)
-                    );
-                    await Promise.all(removePromises);
+                    ));
                     console.log(`[${getKoreanTime()}] 🔄 ${guild.name} 서버의 기존 ${ALERT_ROLE_NAME} 역할 보유자 ${membersWithRole.size}명에서 역할 제거 완료`);
                 }
             }
 
-            // 채널 찾기 (기존 코드와 동일)
+            // 보스알림 채널 설정
             const bossAlertChannel = guild.channels.cache.find(c => 
                 c.name === BOSS_CHANNEL_NAME && 
                 c.type === 0 &&
                 c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
             );
 
-            if (!bossAlertChannel) {
-                console.error(`[${getKoreanTime()}] ❌ '${guild.name}' 서버에서 '${BOSS_CHANNEL_NAME}' 채널을 찾을 수 없거나 권한이 없습니다.`);
-                continue;
-            }
+            if (bossAlertChannel) {
+                let bossMessage = null;
+                const savedMessageId = await getSavedMessageId(guildId);
 
-            let bossMessage = null;
-            const savedMessageId = await getSavedMessageId(guildId);
-
-            // 저장된 메시지 불러오기 시도 (기존 코드와 동일)
-            if (savedMessageId) {
-                try {
-                    bossMessage = await bossAlertChannel.messages.fetch(savedMessageId);
-                    
-                    const reactions = bossMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
-                    if (reactions) {
-                        const users = await reactions.users.fetch();
-                        
-                        const addRolePromises = [];
-                        for (const [userId, user] of users) {
-                            if (!user.bot) {
+                if (savedMessageId) {
+                    try {
+                        bossMessage = await bossAlertChannel.messages.fetch(savedMessageId);
+                        const reactions = bossMessage.reactions.cache.get(BOSS_ALERT_EMOJI);
+                        if (reactions) {
+                            const users = await reactions.users.fetch();
+                            await Promise.all(users.filter(u => !u.bot).map(async user => {
                                 try {
-                                    const member = await guild.members.fetch(userId);
-                                    addRolePromises.push(
-                                        member.roles.add(role).then(() => {
-                                            alertUsers.add(userId);
-                                            console.log(`[${getKoreanTime()}] ✅ ${user.tag} 기존 알림 등록자 역할 자동 부여`);
-                                        })
-                                    );
+                                    const member = await guild.members.fetch(user.id);
+                                    await member.roles.add(role);
+                                    alertUsers.add(user.id);
+                                    console.log(`[${getKoreanTime()}] ✅ ${user.tag} 기존 알림 등록자 역할 자동 부여`);
                                 } catch (err) {
                                     console.error(`[${getKoreanTime()}] ❌ ${user.tag} 역할 부여 실패:`, err.message);
                                 }
-                            }
+                            }));
                         }
-                        await Promise.all(addRolePromises);
+                        bossMessages.set(guildId, bossMessage);
+                        console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${bossMessage.id}`);
+                    } catch (fetchErr) {
+                        console.error(`[${getKoreanTime()}] ⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, fetchErr.message);
                     }
-                    
-                    bossMessages.set(guildId, bossMessage);
-                    console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버 이전 메시지 불러오기 성공: ${bossMessage.id}`);
-                } catch (fetchErr) {
-                    console.error(`[${getKoreanTime()}] ⚠️ ${guild.name} 서버에서 메시지 불러오기 실패:`, fetchErr.message);
                 }
+
+                if (!bossMessage) {
+                    const embed = new EmbedBuilder()
+                        .setColor(0x0099ff)
+                        .setTitle('보스 알림 받기')
+                        .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
+                        .addFields(
+                            { name: "📢 다음 보스", value: `불러오는 중...` },
+                            { name: "🔔 일반 알림", value: "이모지를 클릭하면 서버에서 멘션 알림을 받습니다.", inline: true },
+                            { name: "📩 DM 알림", value: "이모지를 클릭하면 개인 DM으로 알림을 받습니다.", inline: true }
+                        )
+                        .setFooter({ text: `이모지를 클릭해서 원하는 알림을 받으세요!` });
+
+                    bossMessage = await bossAlertChannel.send({ embeds: [embed] });
+                    await bossMessage.react(BOSS_ALERT_EMOJI);
+                    await bossMessage.react(DM_ALERT_EMOJI);
+                    bossMessages.set(guildId, bossMessage);
+                    await saveMessageId(guildId, bossMessage.id);
+                    console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 새 메시지 생성: ${bossMessage.id}`);
+                }
+
+                updateBossMessage(guildId, bossAlertChannel, bossMessage);
             }
 
-            // 새 메시지 생성 (기존 메시지가 없는 경우)
-            if (!bossMessage) {
-                const embed = new EmbedBuilder()
-                    .setColor(0x0099ff)
-                    .setTitle('보스 알림 받기')
-                    .setDescription('새로운 보스 리젠 알림이 1분 전 올라옵니다! 알림을 받고 싶다면, 아래 이모지를 클릭해 주세요.')
-                    .addFields(
-                        { name: "📢 다음 보스", value: `불러오는 중...` },
-                        { name: "🔔 일반 알림", value: "이모지를 클릭하면 서버에서 멘션 알림을 받습니다.", inline: true },
-                        { name: "📩 DM 알림", value: "이모지를 클릭하면 개인 DM으로 알림을 받습니다.", inline: true }
-                    )
-                    .setFooter({ text: `이모지를 클릭해서 원하는 알림을 받으세요!` });
-
-                bossMessage = await bossAlertChannel.send({ embeds: [embed] });
-                await bossMessage.react(BOSS_ALERT_EMOJI);
-                await bossMessage.react(DM_ALERT_EMOJI);  // DM 이모지 추가
-                bossMessages.set(guildId, bossMessage);
-                await saveMessageId(guildId, bossMessage.id);
-                console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 새 메시지 생성: ${bossMessage.id}`);
+            // 클리어 데이터 초기화
+            if (!clearData.has(guildId)) {
+                clearData.set(guildId, {
+                    '엑소': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() },
+                    '테라': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() }
+                });
             }
 
-            // 메시지 업데이트 시작
-            updateBossMessage(guildId, bossAlertChannel, bossMessage);
+            // 파티 데이터 초기화
+            if (!partyData.has(guildId)) {
+                partyData.set(guildId, {});
+            }
+
+            // 클리어확인 채널 초기 메시지 생성
+            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+            if (clearChannel) await updateClearMessage(clearChannel, guildId);
+
+            // 파티 채널 초기화
+            const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
+            if (partyChannel) await updatePartyMessages(partyChannel, guildId);
+
         } catch (guildErr) {
             console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
         }
