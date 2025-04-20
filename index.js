@@ -1038,15 +1038,12 @@ async function resetAllClearData() {
     console.log(`[${getKoreanTime()}] 🔄 모든 서버 클리어 데이터 주간 초기화 완료`);
 }
 
-// ready 이벤트 핸들러 수정
 client.once('ready', async () => {
-    setupWeeklyReset();
-    
-    const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
-    if (clearChannel) await initializeClearMessage(clearChannel, guildId);
-    
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
+    
+    // 주간 초기화 설정
+    setupWeeklyReset();
     
     updateIntervals.forEach(interval => clearInterval(interval));
     updateIntervals.clear();
@@ -1056,6 +1053,10 @@ client.once('ready', async () => {
 
     for (const [guildId, guild] of client.guilds.cache) {
         try {
+            // 클리어 채널 초기화
+            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+            if (clearChannel) await initializeClearMessage(clearChannel, guildId);
+            
             // 역할 초기화
             let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
             if (!role) {
@@ -1145,10 +1146,6 @@ client.once('ready', async () => {
             if (!partyData.has(guildId)) {
                 partyData.set(guildId, {});
             }
-
-            // 클리어확인 채널 초기 메시지 생성
-            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
-            if (clearChannel) await updateClearMessage(clearChannel, guildId);
 
             // 파티 채널 초기화
             const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
