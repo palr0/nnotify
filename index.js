@@ -785,7 +785,7 @@ client.on('interactionCreate', async (interaction) => {
                     { name: "📩 DM 알림", value: "개인 메시지 알림", inline: true }
                 );
 
-            const bossMessage = await interaction.channel.send({ embeds: [embed]
+            const bossMessage = await interaction.channel.send({ embeds: [embed]});
             await bossMessage.react(BOSS_ALERT_EMOJI);
             await bossMessage.react(DM_ALERT_EMOJI);
             
