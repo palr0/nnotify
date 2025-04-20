@@ -713,12 +713,10 @@ async function registerCommands() {
                         .addSubcommand(subcommand =>
                             subcommand
                                 .setName('채널초기화')
-                                .setDescription('파티 채널 초기화'))
-                                .toJSON(),
+                                .setDescription('파티 채널 초기화')),
                     new SlashCommandBuilder()
                         .setName('알림초기화')
                         .setDescription('보스 알림 시스템 초기화')
-                        .toJSON()
                         ];
 
         const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
