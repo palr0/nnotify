@@ -157,7 +157,7 @@ async function savePartyData(guildId) {
                     schedule: value.schedule
                 }
             ])
-        );
+        ));
 
         await axios.put(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}`, updatedRecord, {
             headers: {
