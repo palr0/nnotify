@@ -7,7 +7,7 @@ import './server.js';
 dotenv.config();
 
 // 상수 정의
-const BOSS_CHANNEL_NAME = '보스알림';
+const BOSS_CHANNEL_NAME = '🔔-보스알림';
 const ALERT_ROLE_NAME = '보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';  // 추가된 이모지
