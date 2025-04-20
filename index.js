@@ -8,7 +8,7 @@ import './server.js';
 dotenv.config();
 
 // 상수 정의
-const BOSS_CHANNEL_NAME = '🔔-보스알림';
+const BOSS_CHANNEL_NAME = '🔔ㅣ보스알림';
 const CLEAR_CHANNEL_NAME = '🐸ㅣ클리어확인';
 const PARTY_CHANNEL_NAME = '😳ㅣ파티명단＃레이드';
 const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
