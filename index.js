@@ -273,6 +273,24 @@ async function handlePartyCommand(interaction) {
             guildParties[partyName] = { members: new Set(), schedule: '' };
             await interaction.reply({ content: `파티 '${partyName}'가 생성되었습니다.`, ephemeral: true });
         }
+        else if (subCommand === '수정') {
+        const targetParty = interaction.options.getString('파티제목');
+        const oldName = interaction.options.getString('기존이름');
+        const newName = interaction.options.getString('새이름');
+        
+        if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
+        if (!guildParties[targetParty].members.has(oldName)) {
+            throw new Error(`'${oldName}'님은 파티 '${targetParty}'에 존재하지 않습니다.`);
+        }
+        
+        guildParties[targetParty].members.delete(oldName);
+        guildParties[targetParty].members.add(newName);
+        
+        await interaction.reply({ 
+            content: `파티 '${targetParty}'의 '${oldName}'님이 '${newName}'(으)로 수정되었습니다.`, 
+            ephemeral: true 
+        });
+    }
         else if (subCommand === '제목') {
             const oldName = interaction.options.getString('기존제목');
             const newName = interaction.options.getString('새제목');
@@ -282,14 +300,26 @@ async function handlePartyCommand(interaction) {
             await interaction.reply({ content: `파티 제목이 '${oldName}'에서 '${newName}'(으)로 변경되었습니다.`, ephemeral: true });
         }
         else if (subCommand === '목록') {
-            const targetParty = interaction.options.getString('파티제목');
-            const name = interaction.options.getString('이름');
-            
-            if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
-            
-            if (command === '등록') {
+        const targetParty = interaction.options.getString('파티제목');
+        const name = interaction.options.getString('이름');
+        const position = interaction.options.getInteger('위치') || -1; // 새로 추가된 옵션
+        
+        if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
+        
+        else if (command === '등록') {
+            if (position >= 0) {
+                // 위치 지정 등록 로직
+                const membersArray = Array.from(guildParties[targetParty].members);
+                membersArray.splice(position, 0, name);
+                guildParties[targetParty].members = new Set(membersArray);
+            } else {
                 guildParties[targetParty].members.add(name);
-                await interaction.reply({ content: `'${name}'님이 파티 '${targetParty}'에 추가되었습니다.`, ephemeral: true });
+            }
+            await interaction.reply({ 
+                content: `'${name}'님이 파티 '${targetParty}'에 ${position >= 0 ? position + '번 위치에 ' : ''}추가되었습니다.`, 
+                ephemeral: true 
+            });
+        }
             } else if (command === '제거') {
                 guildParties[targetParty].members.delete(name);
                 await interaction.reply({ content: `'${name}'님이 파티 '${targetParty}'에서 제거되었습니다.`, ephemeral: true });
@@ -650,14 +680,32 @@ async function registerCommands() {
     new SlashCommandBuilder()
         .setName('파티')
         .setDescription('파티 관리 시스템')
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('생성')
-                .setDescription('새 파티 생성')
-                .addStringOption(option =>
-                    option.setName('제목')
-                        .setDescription('파티 제목')
-                        .setRequired(true)))
+        .addSubcommandGroup(group =>
+            group.setName('수정')
+                .setDescription('파티 멤버 정보 수정')
+                .addSubcommand(subcommand =>
+                    subcommand.setName('멤버')
+                        .setDescription('파티 멤버 이름 수정')
+                        .addStringOption(option =>
+                            option.setName('파티제목')
+                                .setDescription('파티 제목')
+                                .setRequired(true))
+                        .addStringOption(option =>
+                            option.setName('기존이름')
+                                .setDescription('수정할 기존 멤버 이름')
+                                .setRequired(true))
+                        .addStringOption(option =>
+                            option.setName('새이름')
+                                .setDescription('새 멤버 이름')
+                                .setRequired(true))))
+                        .addStringOption(option =>
+                            option.setName('이름')
+                                .setDescription('추가할 멤버 이름')
+                                .setRequired(true))
+                        .addIntegerOption(option =>  // 새로 추가된 옵션
+                            option.setName('위치')
+                                .setDescription('추가할 위치 (0부터 시작, 생략시 마지막에 추가)')
+                                .setRequired(false)))
                         .addSubcommandGroup(group =>
                             group
                                 .setName('제목')
@@ -939,7 +987,65 @@ client.on('messageReactionRemove', async (reaction, user) => {
     }
 });
 
+// 기존 코드 유지하되, 메시지 초기화 로직 추가
+async function initializeClearMessage(channel, guildId) {
+    const messages = await channel.messages.fetch({ limit: 10 });
+    const clearMessage = messages.find(m => m.author.bot && m.content.includes('클리어명단'));
+    
+    if (!clearMessage) {
+        await updateClearMessage(channel, guildId);
+    }
+}
+
+// 주간 초기화 스케줄러 추가
+function setupWeeklyReset() {
+    const now = new Date();
+    const nextThursday = new Date();
+    
+    // 다음 목요일 계산
+    nextThursday.setDate(now.getDate() + ((4 - now.getDay() + 7) % 7));
+    nextThursday.setHours(18, 0, 0, 0);
+    
+    // 이미 지난 시간이면 다음 주로 설정
+    if (nextThursday < now) {
+        nextThursday.setDate(nextThursday.getDate() + 7);
+    }
+    
+    const timeUntilReset = nextThursday - now;
+    
+    setTimeout(() => {
+        resetAllClearData();
+        // 매주 반복 설정
+        setInterval(resetAllClearData, 7 * 24 * 60 * 60 * 1000);
+    }, timeUntilReset);
+}
+
+async function resetAllClearData() {
+    clearData.forEach((guildData, guildId) => {
+        for (const boss of RAID_BOSSES) {
+            for (const diff of DIFFICULTIES) {
+                guildData[boss][diff].clear();
+            }
+        }
+        
+        // 클리어 채널 업데이트
+        const guild = client.guilds.cache.get(guildId);
+        if (guild) {
+            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+            if (clearChannel) updateClearMessage(clearChannel, guildId);
+        }
+    });
+    
+    console.log(`[${getKoreanTime()}] 🔄 모든 서버 클리어 데이터 주간 초기화 완료`);
+}
+
+// ready 이벤트 핸들러 수정
 client.once('ready', async () => {
+    setupWeeklyReset();
+    
+    const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+    if (clearChannel) await initializeClearMessage(clearChannel, guildId);
+    
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
     
