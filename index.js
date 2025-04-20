@@ -144,23 +144,25 @@ async function saveMessageId(guildId, messageId) {
     }
 }
 
-// 파티 데이터 저장
 async function savePartyData(guildId) {
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
             headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
         });
 
+        const guildParties = partyData.get(guildId) || {};
+        const partyDataToSave = {};
+
+        // 객체를 순회하며 데이터 변환
+        for (const [partyName, partyInfo] of Object.entries(guildParties)) {
+            partyDataToSave[partyName] = {
+                members: Array.from(partyInfo.members || []),
+                schedule: partyInfo.schedule || ''
+            };
+        }
+
         const updatedRecord = response.data?.record || {};
-        updatedRecord[`${guildId}_party`] = Object.fromEntries(
-            Array.from(partyData.get(guildId).map(([key, value]) => [
-                key, 
-                {
-                    members: Array.from(value.members),
-                    schedule: value.schedule
-                }
-            ])
-        ));
+        updatedRecord[`${guildId}_party`] = partyDataToSave;
 
         await axios.put(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}`, updatedRecord, {
             headers: {
@@ -176,7 +178,6 @@ async function savePartyData(guildId) {
     }
 }
 
-// 파티 데이터 로드
 async function loadPartyData(guildId) {
     try {
         const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
@@ -188,8 +189,8 @@ async function loadPartyData(guildId) {
 
         for (const [partyName, partyInfo] of Object.entries(savedData)) {
             loadedData[partyName] = {
-                members: new Set(partyInfo.members),
-                schedule: partyInfo.schedule
+                members: new Set(partyInfo.members || []),
+                schedule: partyInfo.schedule || ''
             };
         }
 
@@ -313,12 +314,13 @@ async function updateClearMessage(channel, guildId) {
         await channel.send(messageContent.trim());
     }
 }
+
 // 파티 명령어 처리
 async function handlePartyCommand(interaction) {
     const command = interaction.options.getSubcommand();
     const subCommand = interaction.options.getSubcommandGroup();
-    
     const guildId = interaction.guild.id;
+
     if (!partyData.has(guildId)) {
         partyData.set(guildId, {});
     }
@@ -330,88 +332,94 @@ async function handlePartyCommand(interaction) {
             const partyName = interaction.options.getString('제목');
             if (!partyName) throw new Error("파티 제목을 입력해주세요.");
             if (guildParties[partyName]) throw new Error("이미 존재하는 파티 제목입니다.");
+            
             guildParties[partyName] = { members: new Set(), schedule: '' };
+            await savePartyData(guildId);
             await interaction.reply({ content: `파티 '${partyName}'가 생성되었습니다.`, ephemeral: true });
         }
         else if (subCommand === '수정') {
-        const targetParty = interaction.options.getString('파티제목');
-        const oldName = interaction.options.getString('기존이름');
-        const newName = interaction.options.getString('새이름');
-        
-        if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
-        if (!guildParties[targetParty].members.has(oldName)) {
-            throw new Error(`'${oldName}'님은 파티 '${targetParty}'에 존재하지 않습니다.`);
+            const targetParty = interaction.options.getString('파티제목');
+            const oldName = interaction.options.getString('기존이름');
+            const newName = interaction.options.getString('새이름');
+            
+            if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
+            if (!guildParties[targetParty].members.has(oldName)) {
+                throw new Error(`'${oldName}'님은 파티 '${targetParty}'에 존재하지 않습니다.`);
+            }
+            
+            guildParties[targetParty].members.delete(oldName);
+            guildParties[targetParty].members.add(newName);
+            await savePartyData(guildId);
+            await interaction.reply({ 
+                content: `파티 '${targetParty}'의 '${oldName}'님이 '${newName}'(으)로 수정되었습니다.`, 
+                ephemeral: true 
+            });
         }
-        
-        guildParties[targetParty].members.delete(oldName);
-        guildParties[targetParty].members.add(newName);
-        
-        await interaction.reply({ 
-            content: `파티 '${targetParty}'의 '${oldName}'님이 '${newName}'(으)로 수정되었습니다.`, 
-            ephemeral: true 
-        });
-    }
         else if (subCommand === '제목') {
             const oldName = interaction.options.getString('기존제목');
             const newName = interaction.options.getString('새제목');
             if (!guildParties[oldName]) throw new Error("존재하지 않는 파티 제목입니다.");
+            
             guildParties[newName] = guildParties[oldName];
             delete guildParties[oldName];
+            await savePartyData(guildId);
             await interaction.reply({ content: `파티 제목이 '${oldName}'에서 '${newName}'(으)로 변경되었습니다.`, ephemeral: true });
         }
         else if (subCommand === '목록') {
-        const targetParty = interaction.options.getString('파티제목');
-        const name = interaction.options.getString('이름');
-        const position = interaction.options.getInteger('위치') || -1; // 새로 추가된 옵션
-        
-        if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
-        
-        else if (command === '등록') {
-            if (position >= 0) {
-                // 위치 지정 등록 로직
-                const membersArray = Array.from(guildParties[targetParty].members);
-                membersArray.splice(position, 0, name);
-                guildParties[targetParty].members = new Set(membersArray);
-            } else {
-                guildParties[targetParty].members.add(name);
-            }
-            await interaction.reply({ 
-                content: `'${name}'님이 파티 '${targetParty}'에 ${position >= 0 ? position + '번 위치에 ' : ''}추가되었습니다.`, 
-                ephemeral: true 
-            });
-        }
-            } else if (command === '제거') {
+            const targetParty = interaction.options.getString('파티제목');
+            const name = interaction.options.getString('이름');
+            const position = interaction.options.getInteger('위치') || -1;
+            
+            if (!guildParties[targetParty]) throw new Error("존재하지 않는 파티 제목입니다.");
+            
+            if (command === '등록') {
+                if (position >= 0) {
+                    const membersArray = Array.from(guildParties[targetParty].members);
+                    membersArray.splice(position, 0, name);
+                    guildParties[targetParty].members = new Set(membersArray);
+                } else {
+                    guildParties[targetParty].members.add(name);
+                }
+                await savePartyData(guildId);
+                await interaction.reply({ 
+                    content: `'${name}'님이 파티 '${targetParty}'에 ${position >= 0 ? position + '번 위치에 ' : ''}추가되었습니다.`, 
+                    ephemeral: true 
+                });
+            } 
+            else if (command === '제거') {
                 guildParties[targetParty].members.delete(name);
+                await savePartyData(guildId);
                 await interaction.reply({ content: `'${name}'님이 파티 '${targetParty}'에서 제거되었습니다.`, ephemeral: true });
             }
+        }
         else if (subCommand === '일정') {
-            const partyForSchedule = interaction.options.getString('파티제목');
+            const partyName = interaction.options.getString('파티제목');
             const scheduleContent = interaction.options.getString('내용');
             
-            if (command === '변경') {
-                const partyToChange = interaction.options.getString('파티제목');
-                const newSchedule = interaction.options.getString('내용');
-                
-                if (!guildParties[partyToChange]) throw new Error("존재하지 않는 파티 제목입니다.");
-                guildParties[partyToChange].schedule = newSchedule;
-                await interaction.reply({ content: `파티 '${partyToChange}'의 일정이 변경되었습니다.`, ephemeral: true });
-            } else {
-                if (!guildParties[partyForSchedule]) throw new Error("존재하지 않는 파티 제목입니다.");
-                guildParties[partyForSchedule].schedule = scheduleContent;
-                await interaction.reply({ content: `파티 '${partyForSchedule}'의 일정이 설정되었습니다.`, ephemeral: true });
+            if (!guildParties[partyName]) throw new Error("존재하지 않는 파티 제목입니다.");
+            
+            if (command === '등록' || command === '변경') {
+                guildParties[partyName].schedule = scheduleContent;
+                await savePartyData(guildId);
+                await interaction.reply({ 
+                    content: `파티 '${partyName}'의 일정이 ${command === '등록' ? '등록' : '변경'}되었습니다.`, 
+                    ephemeral: true 
+                });
             }
         }
         else if (command === '제거') {
             const partyToRemove = interaction.options.getString('파티제목');
             if (!guildParties[partyToRemove]) throw new Error("존재하지 않는 파티 제목입니다.");
+            
             delete guildParties[partyToRemove];
+            await savePartyData(guildId);
             await interaction.reply({ content: `파티 '${partyToRemove}'가 삭제되었습니다.`, ephemeral: true });
         }
         else if (command === '채널초기화') {
             const messages = await interaction.channel.messages.fetch({ limit: 100 });
             await Promise.all(messages.map(msg => 
                 msg.delete().catch(e => console.error(`메시지 삭제 실패: ${e.message}`))
-            ));
+            );
             const reply = await interaction.reply({ content: "채널이 초기화되었습니다.", ephemeral: true });
             setTimeout(() => reply.delete(), 5000);
         }
@@ -419,7 +427,7 @@ async function handlePartyCommand(interaction) {
             throw new Error("알 수 없는 명령어입니다.");
         }
 
-        await savePartyData(guildId);
+        // 파티 목록 메시지 업데이트
         await updatePartyMessages(interaction.channel, guildId);
         
     } catch (err) {
