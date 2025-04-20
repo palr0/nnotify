@@ -795,7 +795,6 @@ client.on('messageReactionRemove', async (reaction, user) => {
     }
 });
 
-// 봇 준비 완료 시 (메시지 생성 시 이모지 추가)
 client.once('ready', async () => {
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
