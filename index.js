@@ -3,6 +3,7 @@ import { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, SlashComm
 import axios from 'axios';
 import dotenv from 'dotenv';
 import './server.js';
+import { ActivityType } from 'discord.js';
 
 // 환경 변수 로드
 dotenv.config();
@@ -1122,7 +1123,7 @@ async function resetAllClearData() {
 }
 
 client.once('ready', async () => {
-    await client.change_presence(activity=discord.Game(name="거지 길드 봇, 제작 펄"))
+    await client.user.setActivity("거지 길드 봇, 제작 펄", { type: 0 });
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
     
