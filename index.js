@@ -352,10 +352,13 @@ async function handlePartyCommand(message) {
 async function updatePartyMessages(channel, guildId) {
     const guildParties = partyData.get(guildId) || {};
     const messages = await channel.messages.fetch({ limit: 50 });
-    await Promise.all(messages.filter(m => m.author.bot).map(msg => 
-        msg.delete().catch(console.error)
-    ));
+    await Promise.all(
+        messages
+            .filter(m => m.author.bot)
+            .map(msg => msg.delete().catch(console.error))
+    );
 
+    // 새 파티 목록 생성
     for (const [partyName, partyInfo] of Object.entries(guildParties)) {
         let content = `**${partyName}**\n\n`;
         content += partyInfo.members.size > 0 
