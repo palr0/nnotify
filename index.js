@@ -759,7 +759,7 @@ async function registerCommands() {
                         .addStringOption(option =>
                             option.setName('파티제목')
                                 .setDescription('삭제할 파티 제목')
-                                .setRequired(true))))
+                                .setRequired(true)))
                 .addSubcommand(subcommand =>
                     subcommand
                         .setName('채널초기화')
@@ -859,7 +859,7 @@ async function registerCommands() {
                                 .addStringOption(option =>
                                     option.setName('내용')
                                         .setDescription('새 일정 내용')
-                                        .setRequired(true))))),
+                                        .setRequired(true)))),
 
             new SlashCommandBuilder()
                 .setName('알림초기화')
