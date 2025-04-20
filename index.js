@@ -353,7 +353,7 @@ async function updatePartyMessages(channel, guildId) {
     const messages = await channel.messages.fetch({ limit: 50 });
     await Promise.all(messages.filter(m => m.author.bot).map(msg => 
         msg.delete().catch(console.error)
-    ));
+    );
 
     for (const [partyName, partyInfo] of Object.entries(guildParties)) {
         let content = `**${partyName}**\n\n`;
@@ -365,7 +365,7 @@ async function updatePartyMessages(channel, guildId) {
     }
 }
 
-// 이모지 등록자 확인 및 알림 전송 함수 수정 (DM 기능 추가)
+// 이모지 등록자 확인 및 알림 전송
 async function checkEmojiReactionsAndNotify(guild) {
     try {
         const guildId = guild.id;
@@ -410,7 +410,7 @@ async function checkEmojiReactionsAndNotify(guild) {
             }
         }
 
-        // DM 이모지 반응 확인 (추가된 부분)
+        // DM 이모지 반응 확인
         const dmReactions = targetMessage.reactions.cache.get(DM_ALERT_EMOJI);
         if (dmReactions) {
             const users = await dmReactions.users.fetch();
@@ -429,7 +429,7 @@ async function checkEmojiReactionsAndNotify(guild) {
     }
 }
 
-// 보스 메시지 업데이트 함수 수정 (DM 알림 추가)
+// 보스 메시지 업데이트
 async function updateBossMessage(guildId, channel, initialMessage) {
     if (updateIntervals.has(guildId)) {
         clearInterval(updateIntervals.get(guildId));
@@ -444,7 +444,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
             const nextBoss = bosses[0];
             const nextNextBoss = bosses[1] || { boss: '없음', timeStr: '-' };
 
-            // 메인 메시지 업데이트 (이모지 설명 추가)
+            // 메인 메시지 업데이트
             const embed = new EmbedBuilder()
                 .setColor(0x0099ff)
                 .setTitle('보스 알림 받기')
@@ -464,7 +464,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
 
             await checkEmojiReactionsAndNotify(channel.guild);
 
-            // 1분 전 알림 로직 (DM 알림 추가)
+            // 1분 전 알림 로직
             const timeUntilBoss = nextBoss.date.getTime() - now.getTime();
             
             if (timeUntilBoss <= 60000 && timeUntilBoss > 0) {
@@ -509,7 +509,7 @@ async function updateBossMessage(guildId, channel, initialMessage) {
                         }, 60000);
                     }
 
-                    // DM 알림 (추가된 부분)
+                    // DM 알림
                     if (dmAlertUsers.size > 0) {
                         for (const userId of dmAlertUsers) {
                             try {
@@ -636,11 +636,9 @@ client.on('messageCreate', async (message) => {
         setTimeout(() => reply.delete(), 3000);
         return;
     }
-        
-    try {
-        // ... 기존 명령어들 ...
 
-        // ▼▼▼ 수정된 명령어 (관리자 제한 제거) ▼▼▼
+    // 기존 보스알림 명령어 처리
+    try {
         if (message.content.startsWith('/알림초기화')) {
             // 기존 봇 메시지 일괄 삭제
             const messages = await message.channel.messages.fetch();
@@ -678,7 +676,6 @@ client.on('messageCreate', async (message) => {
             setTimeout(() => reply.delete(), 5000);
             return;
         }
-
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 명령어 처리 오류:`, err.message);
         const errorMsg = await message.channel.send('명령어 처리 중 오류가 발생했습니다.\n\n이 메시지는 1분 후에 자동으로 삭제됩니다.');
@@ -689,7 +686,6 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 반응 추가 처리 (DM 이모지 처리 추가)
 client.on('messageReactionAdd', async (reaction, user) => {
     if (user.bot) return;
     
@@ -720,7 +716,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
             
             console.log(`[${getKoreanTime()}] ✅ ${user.tag} 알림 등록 및 역할 부여`);
         }
-        // DM 이모지 처리 (추가된 부분)
+        // DM 이모지 처리
         else if (reaction.emoji.name === DM_ALERT_EMOJI) {
             dmAlertUsers.add(user.id);
             console.log(`[${getKoreanTime()}] ✉️ ${user.tag} DM 알림 등록`);
@@ -743,7 +739,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
     }
 });
 
-// 반응 제거 처리 (DM 이모지 처리 추가)
 client.on('messageReactionRemove', async (reaction, user) => {
     if (user.bot) return;
     
