@@ -205,13 +205,42 @@ async function updateClearMessage(channel, guildId) {
         '테라': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() }
     };
 
+    // 사용자별 클리어 정보 수집
+    const userClearData = {};
+    
+    for (const boss of RAID_BOSSES) {
+        for (const diff of DIFFICULTIES) {
+            if (diff === '노말하드') continue;
+            
+            const users = guildData[boss][diff];
+            users.forEach(username => {
+                if (!userClearData[username]) {
+                    userClearData[username] = {};
+                }
+                if (!userClearData[username][boss]) {
+                    userClearData[username][boss] = [];
+                }
+                userClearData[username][boss].push(diff);
+            });
+        }
+    }
+
+    // 메시지 생성
     let messageContent = '';
     for (const boss of RAID_BOSSES) {
         messageContent += `\n\n**${boss} 클리어명단**`;
-        for (const diff of DIFFICULTIES) {
-            if (diff === '노말하드') continue;
-            const users = Array.from(guildData[boss][diff]).join('\n');
-            if (users) messageContent += `\n${diff}:\n${users}`;
+        
+        const bossUsers = Object.entries(userClearData)
+            .filter(([_, bosses]) => boss in bosses)
+            .map(([username, bosses]) => {
+                const diffs = bosses[boss].join(', ');
+                return `${username}: ${diffs}`;
+            });
+            
+        if (bossUsers.length > 0) {
+            messageContent += `\n${bossUsers.join('\n')}`;
+        } else {
+            messageContent += `\n없음`;
         }
     }
 
@@ -224,7 +253,6 @@ async function updateClearMessage(channel, guildId) {
         await channel.send(messageContent.trim());
     }
 }
-
 // 파티 명령어 처리
 async function handlePartyCommand(interaction) {
     const command = interaction.options.getSubcommand();
