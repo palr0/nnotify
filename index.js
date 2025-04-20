@@ -1,3 +1,4 @@
+
 import { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField } from 'discord.js';
 import axios from 'axios';
 import dotenv from 'dotenv';
@@ -8,8 +9,8 @@ dotenv.config();
 
 // 상수 정의
 const BOSS_CHANNEL_NAME = '🔔-보스알림';
-const CLEAR_CHANNEL_NAME = '🐸ㅣ클리어확인';
-const PARTY_CHANNEL_NAME = '😳ㅣ파티명단＃레이드';
+const CLEAR_CHANNEL_NAME = '클리어확인';
+const PARTY_CHANNEL_NAME = '파티명단＃레이드';
 const ALERT_ROLE_NAME = '보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
@@ -767,12 +768,12 @@ client.on('messageReactionRemove', async (reaction, user) => {
                     const users = await reactions.users.fetch();
                     if (!users.has(user.id)) {
                         await member.roles.remove(role).catch(console.error);
-                        console.log(`[${getKoreanTime()}] 🔄 ${user.tag} 사용자가 이모지를 누르지 않았지만 역할이 남아있어 제거했습니다.`);
+                                                console.log(`[${getKoreanTime()}] 🔄 ${user.tag} 사용자가 이모지를 누르지 않았지만 역할이 남아있어 제거했습니다.`);
                     }
                 }
             }
         }
-        // DM 이모지 처리 (추가된 부분)
+        // DM 이모지 처리
         else if (reaction.emoji.name === DM_ALERT_EMOJI) {
             dmAlertUsers.delete(user.id);
             console.log(`[${getKoreanTime()}] ✉️ ${user.tag} DM 알림 해제`);
@@ -908,7 +909,7 @@ client.once('ready', async () => {
     }
 });
 
-// 역할 동기화 함수 (기존 코드와 동일)
+// 역할 동기화 함수
 async function syncRolesWithReactions(guild) {
     try {
         const role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
@@ -940,7 +941,7 @@ async function syncRolesWithReactions(guild) {
     }
 }
 
-// 상태 모니터링 및 주기적 동기화 (기존 코드와 동일)
+// 상태 모니터링 및 주기적 동기화
 setInterval(() => {
     console.log(`[${getKoreanTime()}] ℹ️ 봇 상태: 
         ${client.guilds.cache.size} 서버, 
@@ -952,13 +953,13 @@ setInterval(() => {
     });
 }, 3600000);
 
-// 봇 로그인 (기존 코드와 동일)
+// 봇 로그인
 client.login(process.env.TOKEN).catch(err => {
     console.error(`[${getKoreanTime()}] ❌ 봇 로그인 실패:`, err.message);
     process.exit(1);
 });
 
-// 종료 핸들러 (기존 코드와 동일)
+// 종료 핸들러
 function cleanup() {
     console.log(`[${getKoreanTime()}] 🔴 봇 종료 중...`);
     
