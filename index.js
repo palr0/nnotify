@@ -324,7 +324,6 @@ async function handlePartyCommand(interaction) {
                 guildParties[targetParty].members.delete(name);
                 await interaction.reply({ content: `'${name}'님이 파티 '${targetParty}'에서 제거되었습니다.`, ephemeral: true });
             }
-        }
         else if (subCommand === '일정') {
             const partyForSchedule = interaction.options.getString('파티제목');
             const scheduleContent = interaction.options.getString('내용');
@@ -705,7 +704,7 @@ async function registerCommands() {
                         .addIntegerOption(option =>  // 새로 추가된 옵션
                             option.setName('위치')
                                 .setDescription('추가할 위치 (0부터 시작, 생략시 마지막에 추가)')
-                                .setRequired(false)))
+                                .setRequired(false))
                         .addSubcommandGroup(group =>
                             group
                                 .setName('제목')
