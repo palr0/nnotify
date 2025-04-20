@@ -331,7 +331,7 @@ async function handlePartyCommand(message) {
                     const messages = await message.channel.messages.fetch({ limit: 100 });
                     await Promise.all(messages.map(msg => 
                         msg.delete().catch(e => console.error(`메시지 삭제 실패: ${e.message}`))
-                    );
+                    ));
                     await message.channel.send("채널이 초기화되었습니다. 이 메시지는 5초 후 삭제됩니다.");
                     setTimeout(() => message.channel.lastMessage?.delete(), 5000);
                 }
