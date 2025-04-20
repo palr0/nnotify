@@ -354,7 +354,7 @@ async function updatePartyMessages(channel, guildId) {
     const messages = await channel.messages.fetch({ limit: 50 });
     await Promise.all(messages.filter(m => m.author.bot).map(msg => 
         msg.delete().catch(console.error)
-    );
+    ));
 
     for (const [partyName, partyInfo] of Object.entries(guildParties)) {
         let content = `**${partyName}**\n\n`;
@@ -939,7 +939,7 @@ async function syncRolesWithReactions(guild) {
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 역할 동기화 실패:`, err.message);
     }
-});
+}
 
 // 상태 모니터링 및 주기적 동기화
 setInterval(() => {
