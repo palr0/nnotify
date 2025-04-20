@@ -9,9 +9,9 @@ dotenv.config();
 
 // 상수 정의
 const BOSS_CHANNEL_NAME = '🔔-보스알림';
-const CLEAR_CHANNEL_NAME = '클리어확인';
-const PARTY_CHANNEL_NAME = '파티명단＃레이드';
-const ALERT_ROLE_NAME = '보스알림';
+const CLEAR_CHANNEL_NAME = '🐸ㅣ클리어확인';
+const PARTY_CHANNEL_NAME = '😳ㅣ파티명단＃레이드';
+const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
 const UPDATE_INTERVAL_MS = 10000;
@@ -939,7 +939,7 @@ async function syncRolesWithReactions(guild) {
     } catch (err) {
         console.error(`[${getKoreanTime()}] ❌ 역할 동기화 실패:`, err.message);
     }
-}
+});
 
 // 상태 모니터링 및 주기적 동기화
 setInterval(() => {
