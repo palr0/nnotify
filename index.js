@@ -17,6 +17,9 @@ const DM_ALERT_EMOJI = '📩';
 const UPDATE_INTERVAL_MS = 10000;
 const RAID_BOSSES = ['엑소', '테라'];
 const DIFFICULTIES = ['노말', '하드', '노말하드'];
+// REST 인스턴스를 전역으로 선언
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
 
 // 검증
 if (!process.env.TOKEN) throw new Error("TOKEN 환경 변수가 필요합니다.");
@@ -1111,28 +1114,31 @@ async function resetAllClearData() {
 }
 
 client.once('ready', async () => {
-    // 기존 명령어 삭제
-    await rest.put(Routes.applicationCommands(client.user.id), { body: [] });
-    console.log('기존 명령어 삭제 완료');
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
     
-    // 주간 초기화 설정
-    setupWeeklyReset();
-    
-    updateIntervals.forEach(interval => clearInterval(interval));
-    updateIntervals.clear();
+    try {
+        // 기존 명령어 삭제
+        await rest.put(Routes.applicationCommands(client.user.id), { body: [] });
+        console.log('기존 명령어 삭제 완료');
+        
+        // 주간 초기화 설정
+        setupWeeklyReset();
+        
+        updateIntervals.forEach(interval => clearInterval(interval));
+        updateIntervals.clear();
 
-    // 슬래시 커맨드 등록
-    await registerCommands();
+        // 슬래시 커맨드 등록
+        await registerCommands();
 
-    for (const [guildId, guild] of client.guilds.cache) {
-        try {
-            // 파티 데이터 로드
-            await loadPartyData(guildId);
-            // 클리어 채널 초기화
-            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
-            if (clearChannel) await initializeClearMessage(clearChannel, guildId);
+        for (const [guildId, guild] of client.guilds.cache) {
+            try {
+                // 파티 데이터 로드
+                await loadPartyData(guildId);
+                // 클리어 채널 초기화
+                const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+                if (clearChannel) await initializeClearMessage(clearChannel, guildId);
+                
             
             // 역할 초기화
             let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
@@ -1229,8 +1235,11 @@ client.once('ready', async () => {
             if (partyChannel) await updatePartyMessages(partyChannel, guildId);
 
         } catch (guildErr) {
-            console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
+                console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
+            }
         }
+    } catch (error) {
+        console.error(`[${getKoreanTime()}] ❌ 봇 초기화 중 오류 발생:`, error);
     }
 });
 
