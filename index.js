@@ -1273,7 +1273,7 @@ setInterval(() => {
         ${client.ws.ping}ms 핑, 
         ${process.memoryUsage().rss / 1024 / 1024}MB 메모리 사용`);
 
-    client.guilds.cache.forEach(guild => {
+    client.guilds.cache.forEach(async (guild) => {
         await savePartyData(guild.id).catch(console.error);
         syncRolesWithReactions(guild).catch(console.error);
     });
