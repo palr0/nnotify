@@ -1199,20 +1199,7 @@ client.once('ready', async () => {
 
         for (const [guildId, guild] of client.guilds.cache) {
             try {
-                // 파티 데이터 로드
-            await loadPartyData(guildId);
             
-            // 클리어 채널 초기화
-            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
-            if (clearChannel) {
-                await initializeClearMessage(clearChannel, guildId);
-            }
-            
-            // 파티 채널 초기화
-            const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
-            if (partyChannel) {
-                await updatePartyMessages(partyChannel, guildId);
-            }
             
             // 역할 초기화
             let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
@@ -1299,15 +1286,25 @@ client.once('ready', async () => {
                 });
             }
 
+            // 파티 데이터 로드
+            await loadPartyData(guildId);
+                
             // 파티 데이터 초기화
             if (!partyData.has(guildId)) {
                 partyData.set(guildId, {});
             }
 
+            // 클리어 채널 초기화
+            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+            if (clearChannel) {
+                await initializeClearMessage(clearChannel, guildId);
+            }
+            
             // 파티 채널 초기화
             const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
-            if (partyChannel) await updatePartyMessages(partyChannel, guildId);
-
+            if (partyChannel) {
+                await updatePartyMessages(partyChannel, guildId);
+            }
         } catch (guildErr) {
             console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
             }
