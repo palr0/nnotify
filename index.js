@@ -16,7 +16,7 @@ const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
 const UPDATE_INTERVAL_MS = 10000;
-const RAID_BOSSES = ['엑소니아', '테라곤'];
+const RAID_BOSSES = ['엑소', '테라'];
 const DIFFICULTIES = ['노말', '하드', '노말하드'];
 // REST 인스턴스를 전역으로 선언
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
@@ -260,7 +260,44 @@ async function handleClearCommand(interaction) {
     await updateClearMessage(interaction.channel, guildId);
 }
 
-// 클리어 목록 업데이트
+// JSONBin에서 클리어 메시지 ID 가져오기
+async function getSavedClearMessageId(guildId) {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
+        });
+        return response.data.record[`${guildId}_clear`];
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 클리어 메시지 ID 불러오기 실패:`, err.message);
+        return null;
+    }
+}
+
+// JSONBin에 클리어 메시지 ID 저장
+async function saveClearMessageId(guildId, messageId) {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
+        });
+
+        const updatedRecord = response.data?.record || {};
+        updatedRecord[`${guildId}_clear`] = messageId;
+
+        await axios.put(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}`, updatedRecord, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': process.env.JSONBIN_API_KEY,
+                'X-Bin-Versioning': 'false'
+            }
+        });
+
+        console.log(`[${getKoreanTime()}] ✅ 클리어 메시지 ID 저장됨 (${guildId}): ${messageId}`);
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 클리어 메시지 ID 저장 실패:`, err.message);
+    }
+}
+
+// 클리어 목록 업데이트 (수정된 버전)
 async function updateClearMessage(channel, guildId) {
     const guildData = clearData.get(guildId) || {
         '엑소': { '노말': new Set(), '하드': new Set(), '노말하드': new Set() },
@@ -287,10 +324,11 @@ async function updateClearMessage(channel, guildId) {
         }
     }
 
-    // 메시지 생성
+    // 메시지 생성 (보스 이름 변경: 엑소 → 엑소니아, 테라 → 테라곤)
     let messageContent = '';
     for (const boss of RAID_BOSSES) {
-        messageContent += `\n\n**${boss} 클리어명단**`;
+        const displayName = boss === '엑소' ? '엑소니아' : '테라곤';
+        messageContent += `\n\n**${displayName} 클리어명단**`;
         
         const bossUsers = Object.entries(userClearData)
             .filter(([_, bosses]) => boss in bosses)
@@ -306,16 +344,29 @@ async function updateClearMessage(channel, guildId) {
         }
     }
 
+    // 기존 메시지 찾기 또는 생성
     const messages = await channel.messages.fetch({ limit: 10 });
-    const clearMessage = messages.find(m => m.author.bot && m.content.includes('클리어명단'));
+    let clearMessage = messages.find(m => m.author.bot && m.content.includes('클리어명단'));
+
+    if (!clearMessage) {
+        // 저장된 메시지 ID 확인
+        const savedMessageId = await getSavedClearMessageId(guildId);
+        if (savedMessageId) {
+            try {
+                clearMessage = await channel.messages.fetch(savedMessageId);
+            } catch (err) {
+                console.error(`[${getKoreanTime()}] ❌ 저장된 클리어 메시지 불러오기 실패:`, err.message);
+            }
+        }
+    }
 
     if (clearMessage) {
         await clearMessage.edit(messageContent.trim());
     } else {
-        await channel.send(messageContent.trim());
+        clearMessage = await channel.send(messageContent.trim());
+        await saveClearMessageId(guildId, clearMessage.id);
     }
 }
-
 // 파티 명령어 처리
 async function handlePartyCommand(interaction) {
     const command = interaction.options.getSubcommand();
@@ -1070,14 +1121,19 @@ client.on('messageReactionRemove', async (reaction, user) => {
     }
 });
 
-// 기존 코드 유지하되, 메시지 초기화 로직 추가
+// 클리어 메시지 초기화
 async function initializeClearMessage(channel, guildId) {
-    const messages = await channel.messages.fetch({ limit: 10 });
-    const clearMessage = messages.find(m => m.author.bot && m.content.includes('클리어명단'));
-    
-    if (!clearMessage) {
-        await updateClearMessage(channel, guildId);
+    const savedMessageId = await getSavedClearMessageId(guildId);
+    if (savedMessageId) {
+        try {
+            const clearMessage = await channel.messages.fetch(savedMessageId);
+            await updateClearMessage(channel, guildId);
+            return;
+        } catch (err) {
+            console.error(`[${getKoreanTime()}] ❌ 저장된 클리어 메시지 불러오기 실패:`, err.message);
+        }
     }
+    await updateClearMessage(channel, guildId);
 }
 
 // 주간 초기화 스케줄러 추가
@@ -1144,11 +1200,19 @@ client.once('ready', async () => {
         for (const [guildId, guild] of client.guilds.cache) {
             try {
                 // 파티 데이터 로드
-                await loadPartyData(guildId);
-                // 클리어 채널 초기화
-                const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
-                if (clearChannel) await initializeClearMessage(clearChannel, guildId);
-                
+            await loadPartyData(guildId);
+            
+            // 클리어 채널 초기화
+            const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
+            if (clearChannel) {
+                await initializeClearMessage(clearChannel, guildId);
+            }
+            
+            // 파티 채널 초기화
+            const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
+            if (partyChannel) {
+                await updatePartyMessages(partyChannel, guildId);
+            }
             
             // 역할 초기화
             let role = guild.roles.cache.find(r => r.name === ALERT_ROLE_NAME);
@@ -1245,7 +1309,7 @@ client.once('ready', async () => {
             if (partyChannel) await updatePartyMessages(partyChannel, guildId);
 
         } catch (guildErr) {
-                console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
+            console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
             }
         }
     } catch (error) {
