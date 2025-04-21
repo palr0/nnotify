@@ -16,7 +16,7 @@ const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
 const UPDATE_INTERVAL_MS = 10000;
-const RAID_BOSSES = ['엑소', '테라'];
+const RAID_BOSSES = ['엑소니아', '테라곤'];
 const DIFFICULTIES = ['노말', '하드', '노말하드'];
 // REST 인스턴스를 전역으로 선언
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
@@ -717,7 +717,7 @@ async function registerCommands() {
     try {
         const commands = [
             new SlashCommandBuilder()
-                .setName('클리어')
+                .setName('클')
                 .setDescription('레이드 클리어 정보 관리')
                 .addSubcommand(subcommand =>
                     subcommand
@@ -897,7 +897,7 @@ client.on('interactionCreate', async (interaction) => {
 
     try {
         // 클리어확인 채널 명령어 처리
-        if (interaction.channel.name === CLEAR_CHANNEL_NAME && interaction.commandName === '클리어') {
+        if (interaction.channel.name === CLEAR_CHANNEL_NAME && interaction.commandName === '클') {
             await handleClearCommand(interaction);
             return;
         }
