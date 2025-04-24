@@ -1141,9 +1141,9 @@ function setupWeeklyReset() {
     const now = new Date();
     const nextThursday = new Date();
     
-    // 다음 목요일 계산
+    // 다음 목요일 계산 (4는 목요일을 의미, 0=일요일, 1=월요일, ..., 6=토요일)
     nextThursday.setDate(now.getDate() + ((4 - now.getDay() + 7) % 7));
-    nextThursday.setHours(18, 0, 0, 0);
+    nextThursday.setHours(18, 0, 0, 0); // 오후 6시로 설정
     
     // 이미 지난 시간이면 다음 주로 설정
     if (nextThursday < now) {
@@ -1161,6 +1161,7 @@ function setupWeeklyReset() {
 
 async function resetAllClearData() {
     clearData.forEach((guildData, guildId) => {
+        // 모든 클리어 데이터 초기화
         for (const boss of RAID_BOSSES) {
             for (const diff of DIFFICULTIES) {
                 guildData[boss][diff].clear();
@@ -1171,7 +1172,41 @@ async function resetAllClearData() {
         const guild = client.guilds.cache.get(guildId);
         if (guild) {
             const clearChannel = guild.channels.cache.find(c => c.name === CLEAR_CHANNEL_NAME);
-            if (clearChannel) updateClearMessage(clearChannel, guildId);
+            if (clearChannel) {
+                // 기본 형태로 메시지 업데이트
+                const defaultMessage = 
+                    "**엑소니아 클리어명단**\n없음\n\n**테라곤 클리어명단**\n없음";
+                
+                // 기존 메시지 찾기
+                clearChannel.messages.fetch({ limit: 10 }).then(messages => {
+                    let clearMessage = messages.find(m => m.author.bot && m.content.includes('클리어명단'));
+                    
+                    if (clearMessage) {
+                        // 기존 메시지 수정
+                        clearMessage.edit(defaultMessage)
+                            .then(() => console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버 클리어 명단 초기화 완료`))
+                            .catch(err => console.error(`[${getKoreanTime()}] ❌ 메시지 수정 실패:`, err));
+                    } else {
+                        // 새 메시지 생성
+                        clearChannel.send(defaultMessage)
+                            .then(msg => saveClearMessageId(guildId, msg.id))
+                            .then(() => console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버 클리어 명단 초기화 완료`))
+                            .catch(err => console.error(`[${getKoreanTime()}] ❌ 메시지 생성 실패:`, err));
+                    }
+                }).catch(err => console.error(`[${getKoreanTime()}] ❌ 메시지 불러오기 실패:`, err));
+                
+                // 알림 메시지 보내기 (5분 후 삭제)
+                clearChannel.send("🔄 **클리어 명단이 주간 초기화되었습니다!** 새로운 주도 화이팅! 💪")
+                    .then(msg => {
+                        console.log(`[${getKoreanTime()}] ⏳ 초기화 알림 메시지 전송 (5분 후 삭제 예정)`);
+                        setTimeout(() => {
+                            msg.delete()
+                                .then(() => console.log(`[${getKoreanTime()}] 🗑️ 초기화 알림 메시지 삭제 완료`))
+                                .catch(err => console.error(`[${getKoreanTime()}] ❌ 알림 메시지 삭제 실패:`, err));
+                        }, 5 * 60 * 1000); // 5분 후 삭제
+                    })
+                    .catch(err => console.error(`[${getKoreanTime()}] ❌ 알림 메시지 전송 실패:`, err));
+            }
         }
     });
     
