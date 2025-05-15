@@ -1500,7 +1500,7 @@ async function sendDailyDungeonMessage() {
                 .setTitle('📅 오늘의 던전')
                 .setDescription('오늘 진행 가능한 던전 정보입니다.')
                 .setThumbnail('https://i.imgur.com/7W7mzQa.png') // 던전 아이콘 이미지
-                .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
+                .setFooter({ text: `갱신 시간: ${getKoreanTime()+3}` });
             
             dungeons.forEach((dungeon, index) => {
                 embed.addFields({
