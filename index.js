@@ -1,3 +1,9 @@
+다음코드는 디스코드봇인데 지금 추가할시스템은 "💬ㅣ오늘의던전"에서만 작동하고 다음날이 시작되는 시간에 해당 채널에 출력되게할거야.
+오늘이 월, 수, 금이면 제목:금화 저장고 설명:몬스터와 맞서 싸우고 금화(골드, 경험치)를 쟁취하세요!를 출력하고
+화, 목, 토면 제목:불안정한 제련소 설명:몬스터와 맞서 싸우고 미가공 강화 원석(정교한 강화석, 경험치)을 쟁취하세요! 를 출력,
+목요일 일때는 추가로 제목:레이드 설명:강력한 레이드 보스와의 전투에서 승리하여 전리품을 획득하세요! 를 출력,
+일요일이면 제목:차원의틈 설명:몬스터와 맞서 싸우고 디멘션 조각(열쇠, 경험치)을 쟁취하세요! 를 출력
+그리고 디자인이 협소해보이는곳은 너가 손봐줘
 
 import { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, SlashCommandBuilder, Routes, REST } from 'discord.js';
 import axios from 'axios';
@@ -1196,15 +1202,15 @@ async function resetAllClearData() {
                     }
                 }).catch(err => console.error(`[${getKoreanTime()}] ❌ 메시지 불러오기 실패:`, err));
                 
-                // 알림 메시지 보내기 (5분 후 삭제)
+                // 알림 메시지 보내기 (30분 후 삭제)
                 clearChannel.send("🔄 **클리어 명단이 주간 초기화되었습니다!** 새로운 주도 화이팅! 💪")
                     .then(msg => {
-                        console.log(`[${getKoreanTime()}] ⏳ 초기화 알림 메시지 전송 (5분 후 삭제 예정)`);
+                        console.log(`[${getKoreanTime()}] ⏳ 초기화 알림 메시지 전송 (30분 후 삭제 예정)`);
                         setTimeout(() => {
                             msg.delete()
                                 .then(() => console.log(`[${getKoreanTime()}] 🗑️ 초기화 알림 메시지 삭제 완료`))
                                 .catch(err => console.error(`[${getKoreanTime()}] ❌ 알림 메시지 삭제 실패:`, err));
-                        }, 5 * 60 * 1000); // 5분 후 삭제
+                        }, 30 * 60 * 1000); // 30분 후 삭제
                     })
                     .catch(err => console.error(`[${getKoreanTime()}] ❌ 알림 메시지 전송 실패:`, err));
             }
@@ -1329,11 +1335,6 @@ client.once('ready', async () => {
     await client.user.setActivity("거지 길드 봇, 제작 펄", { type: 0 });
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
-    // 오늘의 던전 스케줄러 설정
-    setupDailyDungeonSchedule();
-    
-    // 봇 시작 시에도 한번 실행
-    await sendDailyDungeonMessage();
     
     try {
         // 기존 명령어 삭제
@@ -1348,7 +1349,11 @@ client.once('ready', async () => {
 
         // 슬래시 커맨드 등록
         await registerCommands();
-
+// 오늘의 던전 스케줄러 설정
+    setupDailyDungeonSchedule();
+    
+    // 봇 시작 시에도 한번 실행
+    await sendDailyDungeonMessage();
         for (const [guildId, guild] of client.guilds.cache) {
             try {
             
@@ -1510,8 +1515,6 @@ setInterval(() => {
         syncRolesWithReactions(guild).catch(console.error);
     });
 }, 3600000);
-
-
 
 // 봇 로그인
 client.login(process.env.TOKEN).catch(err => {
