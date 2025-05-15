@@ -23,10 +23,10 @@ const DIFFICULTIES = ['노말', '하드', '노말하드'];
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 //client = commands.Bot(command_prefix = '-')
 const dungeonImages = {
-    '금화 저장고': 'https://i.imgur.com/JQ9q7W1.png',
-    '불안정한 제련소': 'https://i.imgur.com/5XwvQ7a.png',
-    '레이드': 'https://i.imgur.com/8K3nR9j.png',
-    '차원의 틈': 'https://i.imgur.com/3Vt7m2L.png'
+    '금화 저장고': 'https://github.com/palr0/nnotify/blob/main/image/gold.png?raw=true',
+    '불안정한 제련소': 'https://github.com/palr0/nnotify/blob/main/image/ref.png?raw=true',
+    '레이드': 'https://github.com/palr0/nnotify/blob/main/image/raid.png?raw=true',
+    '차원의 틈': 'https://github.com/palr0/nnotify/blob/main/image/dimen.png?raw=true'
 };
 
 // 검증
