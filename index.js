@@ -495,6 +495,7 @@ async function handlePartyCommand(interaction) {
 }
 
 // 파티 목록 업데이트
+// 파티 목록 업데이트 (수정된 버전)
 async function updatePartyMessages(channel, guildId) {
     const guildParties = partyData.get(guildId) || {};
     const messages = (await channel.messages.fetch({ limit: 50 }))
@@ -515,7 +516,7 @@ async function updatePartyMessages(channel, guildId) {
 
     // 파티 목록 업데이트
     for (const [partyName, partyInfo] of Object.entries(guildParties)) {
-        let content = `🐸 **${partyName}**\n\n`;
+        let content = `🐸 **${partyName}**\n\n`;  // 파티 명단 메시지에만 🐸 이모지 추가
         content += partyInfo.members.size > 0 
             ? Array.from(partyInfo.members).join('\n') + '\n\n' 
             : "멤버 없음\n\n";
@@ -528,10 +529,10 @@ async function updatePartyMessages(channel, guildId) {
             unusedMessages.delete(existingMsg.id);
             console.log(`[${getKoreanTime()}] 🔄 파티 메시지 수정: ${partyName}`);
         } else {
-            // 빈 메시지 찾기 (내용이 "🐸"만 있는 메시지)
+            // 빈 메시지 찾기 (내용이 없는 메시지)
             let emptyMessage = null;
             for (const msg of messages) {
-                if (msg.content === "🐸" && unusedMessages.has(msg.id)) {
+                if (msg.content.trim() === "" && unusedMessages.has(msg.id)) {
                     emptyMessage = msg;
                     break;
                 }
@@ -548,12 +549,12 @@ async function updatePartyMessages(channel, guildId) {
         }
     }
 
-    // 사용되지 않은 메시지 정리 (내용을 "🐸"로 변경하여 빈 메시지로 표시)
+    // 사용되지 않은 메시지 정리 (내용을 비움)
     for (const msgId of unusedMessages) {
         try {
             const msg = await channel.messages.fetch(msgId);
-            if (msg.content !== "🐸") {
-                await msg.edit("🐸");
+            if (msg.content.trim() !== "") {
+                await msg.edit("");  // 다른 메시지는 내용을 비움
                 console.log(`[${getKoreanTime()}] 🧹 사용되지 않은 메시지 정리: ${msgId}`);
             }
         } catch (err) {
@@ -1394,11 +1395,11 @@ client.once('ready', async () => {
             // 파티 채널 초기화
             const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
 if (partyChannel) {
-    // 기존 봇 메시지 모두 "🐸"로 초기화
+    // 기존 봇 메시지 모두 빈 메시지로 초기화
     const messages = await partyChannel.messages.fetch({ limit: 50 });
     await Promise.all(
         messages.filter(m => m.author.bot && !m.content.includes('클리어명단'))
-            .map(msg => msg.edit("🐸").catch(console.error))
+            .map(msg => msg.edit("").catch(console.error))
     );
     await updatePartyMessages(partyChannel, guildId);
 }
