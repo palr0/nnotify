@@ -1143,7 +1143,7 @@ function setupWeeklyReset() {
     
     // 다음 목요일 계산 (4는 목요일을 의미, 0=일요일, 1=월요일, ..., 6=토요일)
     nextThursday.setDate(now.getDate() + ((4 - now.getDay() + 7) % 7));
-    nextThursday.setHours(18, 0, 0, 0); // 오후 6시로 설정
+    nextThursday.setHours(12, 0, 0, 0); // 오후 6시로 설정
     
     // 이미 지난 시간이면 다음 주로 설정
     if (nextThursday < now) {
