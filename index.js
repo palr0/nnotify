@@ -497,27 +497,71 @@ async function handlePartyCommand(interaction) {
 // 파티 목록 업데이트
 async function updatePartyMessages(channel, guildId) {
     const guildParties = partyData.get(guildId) || {};
-    const messages = await channel.messages.fetch({ limit: 50 });
-    
-    // 봇이 보낸 기존 메시지만 삭제
-    await Promise.all(
-        messages
-            .filter(m => m.author.bot && !m.content.includes('클리어명단'))
-            .map(msg => msg.delete().catch(console.error))
-    );
+    const messages = (await channel.messages.fetch({ limit: 50 }))
+        .filter(m => m.author.bot && !m.content.includes('클리어명단'))
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
-    // 새 파티 목록 생성
+    // 기존 메시지 맵 생성 (제목으로 매핑)
+    const existingMessages = new Map();
+    messages.forEach(msg => {
+        const partyTitleMatch = msg.content.match(/\*\*(.*?)\*\*/);
+        if (partyTitleMatch && partyTitleMatch[1]) {
+            existingMessages.set(partyTitleMatch[1], msg);
+        }
+    });
+
+    // 사용되지 않은 메시지 추적
+    const unusedMessages = new Set(messages.map(msg => msg.id));
+
+    // 파티 목록 업데이트
     for (const [partyName, partyInfo] of Object.entries(guildParties)) {
-        let content = `**${partyName}**\n\n`;
+        let content = `🐸 **${partyName}**\n\n`;
         content += partyInfo.members.size > 0 
             ? Array.from(partyInfo.members).join('\n') + '\n\n' 
             : "멤버 없음\n\n";
         content += `일정: ${partyInfo.schedule || "없음"}`;
-        
-        await channel.send(content);
+
+        // 기존 메시지가 있으면 수정, 없으면 새로 생성
+        if (existingMessages.has(partyName)) {
+            const existingMsg = existingMessages.get(partyName);
+            await existingMsg.edit(content);
+            unusedMessages.delete(existingMsg.id);
+            console.log(`[${getKoreanTime()}] 🔄 파티 메시지 수정: ${partyName}`);
+        } else {
+            // 빈 메시지 찾기 (내용이 "🐸"만 있는 메시지)
+            let emptyMessage = null;
+            for (const msg of messages) {
+                if (msg.content === "🐸" && unusedMessages.has(msg.id)) {
+                    emptyMessage = msg;
+                    break;
+                }
+            }
+
+            if (emptyMessage) {
+                await emptyMessage.edit(content);
+                unusedMessages.delete(emptyMessage.id);
+                console.log(`[${getKoreanTime()}] 🔄 빈 메시지 재사용: ${partyName}`);
+            } else {
+                await channel.send(content);
+                console.log(`[${getKoreanTime()}] ✅ 새 파티 메시지 생성: ${partyName}`);
+            }
+        }
     }
-    
-    // 데이터 저장 (업데이트 시마다)
+
+    // 사용되지 않은 메시지 정리 (내용을 "🐸"로 변경하여 빈 메시지로 표시)
+    for (const msgId of unusedMessages) {
+        try {
+            const msg = await channel.messages.fetch(msgId);
+            if (msg.content !== "🐸") {
+                await msg.edit("🐸");
+                console.log(`[${getKoreanTime()}] 🧹 사용되지 않은 메시지 정리: ${msgId}`);
+            }
+        } catch (err) {
+            console.error(`[${getKoreanTime()}] ❌ 메시지 정리 실패:`, err.message);
+        }
+    }
+
+    // 데이터 저장
     await savePartyData(guildId);
 }
 
@@ -1349,9 +1393,15 @@ client.once('ready', async () => {
             
             // 파티 채널 초기화
             const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
-            if (partyChannel) {
-                await updatePartyMessages(partyChannel, guildId);
-            }
+if (partyChannel) {
+    // 기존 봇 메시지 모두 "🐸"로 초기화
+    const messages = await partyChannel.messages.fetch({ limit: 50 });
+    await Promise.all(
+        messages.filter(m => m.author.bot && !m.content.includes('클리어명단'))
+            .map(msg => msg.edit("🐸").catch(console.error))
+    );
+    await updatePartyMessages(partyChannel, guildId);
+}
         } catch (guildErr) {
             console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
             }
