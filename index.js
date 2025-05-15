@@ -12,6 +12,7 @@ dotenv.config();
 const BOSS_CHANNEL_NAME = '🔔ㅣ보스알림';
 const CLEAR_CHANNEL_NAME = '🐸ㅣ클리어확인';
 const PARTY_CHANNEL_NAME = '😳ㅣ파티명단＃레이드';
+const DUNGEON_CHANNEL_NAME = '📅ㅣ오늘의던전';
 const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
@@ -1213,6 +1214,8 @@ async function resetAllClearData() {
     console.log(`[${getKoreanTime()}] 🔄 모든 서버 클리어 데이터 주간 초기화 완료`);
 }
 
+
+
 client.once('ready', async () => {
     await client.user.setActivity("거지 길드 봇, 제작 펄", { type: 0 });
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
@@ -1225,6 +1228,9 @@ client.once('ready', async () => {
         
         // 주간 초기화 설정
         setupWeeklyReset();
+        // 오늘의 던전 스케줄러 설정 ← 이 부분에 추가
+        setupDailyDungeonSchedule();
+        await sendDailyDungeonMessage();
         
         updateIntervals.forEach(interval => clearInterval(interval));
         updateIntervals.clear();
@@ -1417,3 +1423,115 @@ process.on('uncaughtException', (err) => {
     console.error(`[${getKoreanTime()}] ❌ 처리되지 않은 예외:`, err);
     cleanup();
 });
+
+
+// 오늘의 던전 정보를 가져오는 함수
+function getTodayDungeon() {
+    const now = new Date();
+    const day = now.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+    
+    const dungeons = [];
+    
+    // 월, 수, 금요일 (1, 3, 5)
+    if ([1, 3, 5].includes(day)) {
+        dungeons.push({
+            title: "금화 저장고",
+            description: "몬스터와 맞서 싸우고 금화(골드, 경험치)를 쟁취하세요!"
+        });
+    }
+    
+    // 화, 목, 토요일 (2, 4, 6)
+    if ([2, 4, 6].includes(day)) {
+        dungeons.push({
+            title: "불안정한 제련소",
+            description: "몬스터와 맞서 싸우고 미가공 강화 원석(정교한 강화석, 경험치)을 쟁취하세요!"
+        });
+    }
+    
+    // 목요일 (4) 추가 던전
+    if (day === 4) {
+        dungeons.push({
+            title: "레이드",
+            description: "강력한 레이드 보스와의 전투에서 승리하여 전리품을 획득하세요!"
+        });
+    }
+    
+    // 일요일 (0)
+    if (day === 0) {
+        dungeons.push({
+            title: "차원의 틈",
+            description: "몬스터와 맞서 싸우고 디멘션 조각(열쇠, 경험치)을 쟁취하세요!"
+        });
+    }
+    
+    return dungeons;
+}
+
+// 오늘의 던전 메시지 생성 함수
+async function sendDailyDungeonMessage() {
+    const dungeons = getTodayDungeon();
+    
+    if (dungeons.length === 0) {
+        console.log(`[${getKoreanTime()}] ⚠️ 오늘은 던전이 없습니다.`);
+        return;
+    }
+    
+    for (const [guildId, guild] of client.guilds.cache) {
+        try {
+            const dungeonChannel = guild.channels.cache.find(c => 
+                c.name === DUNGEON_CHANNEL_NAME && 
+                c.type === 0 &&
+                c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
+            );
+            
+            if (!dungeonChannel) continue;
+            
+            // 기존 봇 메시지 삭제
+            const messages = await dungeonChannel.messages.fetch({ limit: 10 });
+            await Promise.all(
+                messages.filter(m => m.author.bot)
+                    .map(msg => msg.delete().catch(console.error))
+            );
+            
+            // 새 메시지 생성
+            const embed = new EmbedBuilder()
+                .setColor(0xFFD700)
+                .setTitle('📅 오늘의 던전')
+                .setDescription('오늘 진행 가능한 던전 정보입니다.')
+                .setThumbnail('https://i.imgur.com/7W7mzQa.png') // 던전 아이콘 이미지
+                .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
+            
+            dungeons.forEach((dungeon, index) => {
+                embed.addFields({
+                    name: `🏰 ${dungeon.title}`,
+                    value: dungeon.description,
+                    inline: index < dungeons.length - 1
+                });
+            });
+            
+            await dungeonChannel.send({ embeds: [embed] });
+            console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 오늘의 던전 메시지 전송 완료`);
+        } catch (err) {
+            console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 던전 메시지 전송 실패:`, err.message);
+        }
+    }
+}
+
+// 매일 자정에 실행되도록 스케줄 설정
+function setupDailyDungeonSchedule() {
+    const now = new Date();
+    const midnight = new Date();
+    
+    // 다음 자정 시간 설정 (오늘 자정이 지났으면 내일 자정)
+    midnight.setHours(24, 0, 0, 0);
+    
+    const timeUntilMidnight = midnight - now;
+    
+    setTimeout(() => {
+        sendDailyDungeonMessage();
+        // 24시간마다 반복
+        setInterval(sendDailyDungeonMessage, 24 * 60 * 60 * 1000);
+    }, timeUntilMidnight);
+    
+    console.log(`[${getKoreanTime()}] ⏰ 오늘의 던전 스케줄러 설정 완료 (${midnight.toLocaleString('ko-KR')} 실행 예정)`);
+}
