@@ -22,6 +22,12 @@ const DIFFICULTIES = ['노말', '하드', '노말하드'];
 // REST 인스턴스를 전역으로 선언
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 //client = commands.Bot(command_prefix = '-')
+const dungeonImages = {
+    '금화 저장고': 'https://i.imgur.com/JQ9q7W1.png',
+    '불안정한 제련소': 'https://i.imgur.com/5XwvQ7a.png',
+    '레이드': 'https://i.imgur.com/8K3nR9j.png',
+    '차원의 틈': 'https://i.imgur.com/3Vt7m2L.png'
+};
 
 // 검증
 if (!process.env.TOKEN) throw new Error("TOKEN 환경 변수가 필요합니다.");
@@ -1428,39 +1434,39 @@ process.on('uncaughtException', (err) => {
 // 오늘의 던전 정보를 가져오는 함수
 function getTodayDungeon() {
     const now = new Date();
-    const day = now.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+    const day = now.getDay();
     
     const dungeons = [];
     
-    // 월, 수, 금요일 (1, 3, 5)
     if ([1, 3, 5].includes(day)) {
         dungeons.push({
             title: "금화 저장고",
-            description: "몬스터와 맞서 싸우고 금화(골드, 경험치)를 쟁취하세요!"
+            description: "몬스터와 맞서 싸우고 금화(골드, 경험치)를 쟁취하세요!",
+            image: dungeonImages['금화 저장고']
         });
     }
     
-    // 화, 목, 토요일 (2, 4, 6)
     if ([2, 4, 6].includes(day)) {
         dungeons.push({
             title: "불안정한 제련소",
-            description: "몬스터와 맞서 싸우고 미가공 강화 원석(정교한 강화석, 경험치)을 쟁취하세요!"
+            description: "몬스터와 맞서 싸우고 미가공 강화 원석(정교한 강화석, 경험치)을 쟁취하세요!",
+            image: dungeonImages['불안정한 제련소']
         });
     }
     
-    // 목요일 (4) 추가 던전
     if (day === 4) {
         dungeons.push({
             title: "레이드",
-            description: "강력한 레이드 보스와의 전투에서 승리하여 전리품을 획득하세요!"
+            description: "강력한 레이드 보스와의 전투에서 승리하여 전리품을 획득하세요!",
+            image: dungeonImages['레이드']
         });
     }
     
-    // 일요일 (0)
     if (day === 0) {
         dungeons.push({
             title: "차원의 틈",
-            description: "몬스터와 맞서 싸우고 디멘션 조각(열쇠, 경험치)을 쟁취하세요!"
+            description: "몬스터와 맞서 싸우고 디멘션 조각(열쇠, 경험치)을 쟁취하세요!",
+            image: dungeonImages['차원의 틈']
         });
     }
     
@@ -1493,23 +1499,18 @@ async function sendDailyDungeonMessage() {
                     .map(msg => msg.delete().catch(console.error))
             );
             
-            // 새 메시지 생성
-            const embed = new EmbedBuilder()
-                .setColor(0xFFD700)
-                .setTitle('📅 오늘의 던전')
-                .setDescription('오늘 진행 가능한 던전 정보입니다.')
-                .setThumbnail('https://i.imgur.com/7W7mzQa.png') // 던전 아이콘 이미지
-                .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
+            // 던전별로 개별 메시지 전송
+            for (const dungeon of dungeons) {
+                const embed = new EmbedBuilder()
+                    .setColor(0xFFD700)
+                    .setTitle(`🏰 ${dungeon.title}`)
+                    .setDescription(dungeon.description)
+                    .setImage(dungeon.image)
+                    .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
+                
+                await dungeonChannel.send({ embeds: [embed] });
+            }
             
-            dungeons.forEach((dungeon, index) => {
-                embed.addFields({
-                    name: `🏰 ${dungeon.title}`,
-                    value: dungeon.description,
-                    inline: index < dungeons.length - 1
-                });
-            });
-            
-            await dungeonChannel.send({ embeds: [embed] });
             console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 오늘의 던전 메시지 전송 완료`);
         } catch (err) {
             console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 던전 메시지 전송 실패:`, err.message);
