@@ -15,7 +15,7 @@ const BOSS_CHANNEL_NAME = '🔔ㅣ보스알림';
 const CLEAR_CHANNEL_NAME = '🐸ㅣ클리어확인';
 const PARTY_CHANNEL_NAME = '😳ㅣ파티명단＃레이드';
 const DUNGEON_CHANNEL_NAME = '📅ㅣ오늘의던전';
-const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
+const ALERT_ROLE_NAME = '보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
 const UPDATE_INTERVAL_MS = 10000;
@@ -817,8 +817,51 @@ const client = new Client({
     ]
 });
 
+// 명령어 해시 생성 함수
+async function generateCommandsHash(commands) {
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256');
+    commands.forEach(cmd => hash.update(JSON.stringify(cmd.toJSON())));
+    return hash.digest('hex');
+}
+
+// JSONBin에서 명령어 해시 가져오기
+async function getSavedCommandsHash() {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
+        });
+        return response.data.record?.commandsHash;
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 명령어 해시 불러오기 실패:`, err.message);
+        return null;
+    }
+}
+
+// JSONBin에 명령어 해시 저장
+async function saveCommandsHash(hash) {
+    try {
+        const response = await axios.get(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': process.env.JSONBIN_API_KEY }
+        });
+
+        const updatedRecord = response.data?.record || {};
+        updatedRecord.commandsHash = hash;
+
+        await axios.put(`https://api.jsonbin.io/v3/b/${process.env.JSONBIN_BIN_ID}`, updatedRecord, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': process.env.JSONBIN_API_KEY,
+                'X-Bin-Versioning': 'false'
+            }
+        });
+    } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 명령어 해시 저장 실패:`, err.message);
+    }
+}
+
 // 슬래시 커맨드 등록
-async function registerCommands() {
+async function registerCommandsIfChanged() {
     try {
         const commands = [
             new SlashCommandBuilder()
@@ -983,18 +1026,39 @@ async function registerCommands() {
                 .setDescription('보스 알림 시스템 초기화')
         ];
 
-        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+        // 현재 명령어 해시 생성
+        const currentHash = await generateCommandsHash(commands);
+        const savedHash = await getSavedCommandsHash();
 
-        console.log(`[${getKoreanTime()}] 🔄 슬래시 커맨드 등록 시작...`);
+        // 해시 비교
+        if (currentHash === savedHash) {
+            console.log(`[${getKoreanTime()}] ℹ️ 명령어 변경 사항 없음 - 재등록 건너뜀`);
+            return;
+        }
+
+        console.log(`[${getKoreanTime()}] 🔄 명령어 변경 감지 - 새 해시: ${currentHash}, 이전 해시: ${savedHash || '없음'}`);
+
+        // 명령어 전체 삭제 후 재등록
+        console.log(`[${getKoreanTime()}] 🔄 슬래시 커맨드 재등록 시작...`);
+        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+        
+        // 기존 명령어 삭제
+        await rest.put(Routes.applicationCommands(client.user.id), { body: [] });
+        
+        // 새 명령어 등록
         await rest.put(
             Routes.applicationCommands(client.user.id),
             { body: commands.map(command => command.toJSON()) }
         );
-        console.log(`[${getKoreanTime()}] ✅ 슬래시 커맨드 등록 완료`);
+        
+        // 새 해시 저장
+        await saveCommandsHash(currentHash);
+        console.log(`[${getKoreanTime()}] ✅ 슬래시 커맨드 재등록 완료 (새 해시: ${currentHash})`);
     } catch (error) {
         console.error(`[${getKoreanTime()}] ❌ 슬래시 커맨드 등록 실패:`, error);
     }
 }
+
 
 // 슬래시 커맨드 핸들러
 client.on('interactionCreate', async (interaction) => {
@@ -1275,9 +1339,7 @@ client.once('ready', async () => {
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
     
     try {
-        // 기존 명령어 삭제
-        await rest.put(Routes.applicationCommands(client.user.id), { body: [] });
-        console.log('기존 명령어 삭제 완료');
+        await registerCommandsIfChanged();
         
         // 주간 초기화 설정
         setupWeeklyReset();
