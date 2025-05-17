@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import './server.js';
 import { ActivityType } from 'discord.js';
 
+
+
 // 환경 변수 로드
 dotenv.config();
 
@@ -12,6 +14,7 @@ dotenv.config();
 const BOSS_CHANNEL_NAME = '🔔ㅣ보스알림';
 const CLEAR_CHANNEL_NAME = '🐸ㅣ클리어확인';
 const PARTY_CHANNEL_NAME = '😳ㅣ파티명단＃레이드';
+const DUNGEON_CHANNEL_NAME = '📅ㅣ오늘의던전';
 const ALERT_ROLE_NAME = '🔔ㅣ보스알림';
 const BOSS_ALERT_EMOJI = '🔔';
 const DM_ALERT_EMOJI = '📩';
@@ -21,6 +24,12 @@ const DIFFICULTIES = ['노말', '하드', '노말하드'];
 // REST 인스턴스를 전역으로 선언
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 //client = commands.Bot(command_prefix = '-')
+const dungeonImages = {
+    '금화 저장고': 'https://github.com/palr0/nnotify/blob/main/image/gold.png?raw=true',
+    '불안정한 제련소': 'https://github.com/palr0/nnotify/blob/main/image/ref.png?raw=true',
+    '레이드': 'https://github.com/palr0/nnotify/blob/main/image/raid.png?raw=true',
+    '차원의 틈': 'https://github.com/palr0/nnotify/blob/main/image/dimen.png?raw=true'
+};
 
 // 검증
 if (!process.env.TOKEN) throw new Error("TOKEN 환경 변수가 필요합니다.");
@@ -488,29 +497,74 @@ async function handlePartyCommand(interaction) {
 }
 
 // 파티 목록 업데이트
+// 파티 목록 업데이트 (수정된 버전)
 async function updatePartyMessages(channel, guildId) {
     const guildParties = partyData.get(guildId) || {};
-    const messages = await channel.messages.fetch({ limit: 50 });
-    
-    // 봇이 보낸 기존 메시지만 삭제
-    await Promise.all(
-        messages
-            .filter(m => m.author.bot && !m.content.includes('클리어명단'))
-            .map(msg => msg.delete().catch(console.error))
-    );
+    const messages = (await channel.messages.fetch({ limit: 50 }))
+        .filter(m => m.author.bot && !m.content.includes('클리어명단'))
+        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
-    // 새 파티 목록 생성
+    // 기존 메시지 맵 생성 (제목으로 매핑)
+    const existingMessages = new Map();
+    messages.forEach(msg => {
+        const partyTitleMatch = msg.content.match(/\*\*(.*?)\*\*/);
+        if (partyTitleMatch && partyTitleMatch[1]) {
+            existingMessages.set(partyTitleMatch[1], msg);
+        }
+    });
+
+    // 사용되지 않은 메시지 추적
+    const unusedMessages = new Set(messages.map(msg => msg.id));
+
+    // 파티 목록 업데이트
     for (const [partyName, partyInfo] of Object.entries(guildParties)) {
-        let content = `**${partyName}**\n\n`;
+        let content = `🐸 **${partyName}**\n\n`;  // 파티 명단 메시지에만 🐸 이모지 추가
         content += partyInfo.members.size > 0 
             ? Array.from(partyInfo.members).join('\n') + '\n\n' 
             : "멤버 없음\n\n";
         content += `일정: ${partyInfo.schedule || "없음"}`;
-        
-        await channel.send(content);
+
+        // 기존 메시지가 있으면 수정, 없으면 새로 생성
+        if (existingMessages.has(partyName)) {
+            const existingMsg = existingMessages.get(partyName);
+            await existingMsg.edit(content);
+            unusedMessages.delete(existingMsg.id);
+            console.log(`[${getKoreanTime()}] 🔄 파티 메시지 수정: ${partyName}`);
+        } else {
+            // 빈 메시지 찾기 (내용이 없는 메시지)
+            let emptyMessage = null;
+            for (const msg of messages) {
+                if (msg.content.trim() === "" && unusedMessages.has(msg.id)) {
+                    emptyMessage = msg;
+                    break;
+                }
+            }
+
+            if (emptyMessage) {
+                await emptyMessage.edit(content);
+                unusedMessages.delete(emptyMessage.id);
+                console.log(`[${getKoreanTime()}] 🔄 빈 메시지 재사용: ${partyName}`);
+            } else {
+                await channel.send(content);
+                console.log(`[${getKoreanTime()}] ✅ 새 파티 메시지 생성: ${partyName}`);
+            }
+        }
     }
-    
-    // 데이터 저장 (업데이트 시마다)
+
+    // 사용되지 않은 메시지 정리 (내용을 비움)
+    for (const msgId of unusedMessages) {
+        try {
+            const msg = await channel.messages.fetch(msgId);
+            if (msg.content.trim() !== "") {
+                await msg.edit("");  // 다른 메시지는 내용을 비움
+                console.log(`[${getKoreanTime()}] 🧹 사용되지 않은 메시지 정리: ${msgId}`);
+            }
+        } catch (err) {
+            console.error(`[${getKoreanTime()}] ❌ 메시지 정리 실패:`, err.message);
+        }
+    }
+
+    // 데이터 저장
     await savePartyData(guildId);
 }
 
@@ -1143,7 +1197,7 @@ function setupWeeklyReset() {
     
     // 다음 목요일 계산 (4는 목요일을 의미, 0=일요일, 1=월요일, ..., 6=토요일)
     nextThursday.setDate(now.getDate() + ((4 - now.getDay() + 7) % 7));
-    nextThursday.setHours(12, 0, 0, 0); // 오후 6시로 설정
+    nextThursday.setHours(9, 0, 0, 0); // 오후 6시로 설정 (18)
     
     // 이미 지난 시간이면 다음 주로 설정
     if (nextThursday < now) {
@@ -1213,6 +1267,8 @@ async function resetAllClearData() {
     console.log(`[${getKoreanTime()}] 🔄 모든 서버 클리어 데이터 주간 초기화 완료`);
 }
 
+
+
 client.once('ready', async () => {
     await client.user.setActivity("거지 길드 봇, 제작 펄", { type: 0 });
     console.log(`[${getKoreanTime()}] ✅ ${client.user.tag} 봇이 온라인입니다!`);
@@ -1225,6 +1281,9 @@ client.once('ready', async () => {
         
         // 주간 초기화 설정
         setupWeeklyReset();
+        // 오늘의 던전 스케줄러 설정 ← 이 부분에 추가
+        setupDailyDungeonSchedule();
+        await sendDailyDungeonMessage();
         
         updateIntervals.forEach(interval => clearInterval(interval));
         updateIntervals.clear();
@@ -1337,9 +1396,15 @@ client.once('ready', async () => {
             
             // 파티 채널 초기화
             const partyChannel = guild.channels.cache.find(c => c.name === PARTY_CHANNEL_NAME);
-            if (partyChannel) {
-                await updatePartyMessages(partyChannel, guildId);
-            }
+if (partyChannel) {
+    // 기존 봇 메시지 모두 빈 메시지로 초기화
+    const messages = await partyChannel.messages.fetch({ limit: 50 });
+    await Promise.all(
+        messages.filter(m => m.author.bot && !m.content.includes('클리어명단'))
+            .map(msg => msg.edit("").catch(console.error))
+    );
+    await updatePartyMessages(partyChannel, guildId);
+}
         } catch (guildErr) {
             console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 초기화 실패:`, guildErr.message);
             }
@@ -1417,3 +1482,110 @@ process.on('uncaughtException', (err) => {
     console.error(`[${getKoreanTime()}] ❌ 처리되지 않은 예외:`, err);
     cleanup();
 });
+
+
+// 오늘의 던전 정보를 가져오는 함수
+function getTodayDungeon() {
+    const now = new Date();
+    const day = now.getDay();
+    
+    const dungeons = [];
+    
+    if ([1, 3, 5].includes(day)) {
+        dungeons.push({
+            title: "금화 저장고",
+            description: "몬스터와 맞서 싸우고 금화(골드, 경험치)를 쟁취하세요!",
+            image: dungeonImages['금화 저장고']
+        });
+    }
+    
+    if ([2, 4, 6].includes(day)) {
+        dungeons.push({
+            title: "불안정한 제련소",
+            description: "몬스터와 맞서 싸우고 미가공 강화 원석(정교한 강화석, 경험치)을 쟁취하세요!",
+            image: dungeonImages['불안정한 제련소']
+        });
+    }
+    
+    if (day === 4) {
+        dungeons.push({
+            title: "레이드",
+            description: "강력한 레이드 보스와의 전투에서 승리하여 전리품을 획득하세요!",
+            image: dungeonImages['레이드']
+        });
+    }
+    
+    if (day === 0) {
+        dungeons.push({
+            title: "차원의 틈",
+            description: "몬스터와 맞서 싸우고 디멘션 조각(열쇠, 경험치)을 쟁취하세요!",
+            image: dungeonImages['차원의 틈']
+        });
+    }
+    
+    return dungeons;
+}
+
+// 오늘의 던전 메시지 생성 함수
+async function sendDailyDungeonMessage() {
+    const dungeons = getTodayDungeon();
+    
+    if (dungeons.length === 0) {
+        console.log(`[${getKoreanTime()}] ⚠️ 오늘은 던전이 없습니다.`);
+        return;
+    }
+    
+    for (const [guildId, guild] of client.guilds.cache) {
+        try {
+            const dungeonChannel = guild.channels.cache.find(c => 
+                c.name === DUNGEON_CHANNEL_NAME && 
+                c.type === 0 &&
+                c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
+            );
+            
+            if (!dungeonChannel) continue;
+            
+            // 기존 봇 메시지 삭제
+            const messages = await dungeonChannel.messages.fetch({ limit: 10 });
+            await Promise.all(
+                messages.filter(m => m.author.bot)
+                    .map(msg => msg.delete().catch(console.error))
+            );
+            
+            // 던전별로 개별 메시지 전송
+            for (const dungeon of dungeons) {
+                const embed = new EmbedBuilder()
+                    .setColor(0xFFD700)
+                    .setTitle(`🏰 ${dungeon.title}`)
+                    .setDescription(dungeon.description)
+                    .setImage(dungeon.image)
+                    .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
+                
+                await dungeonChannel.send({ embeds: [embed] });
+            }
+            
+            console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 오늘의 던전 메시지 전송 완료`);
+        } catch (err) {
+            console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 던전 메시지 전송 실패:`, err.message);
+        }
+    }
+}
+
+// 매일 자정에 실행되도록 스케줄 설정
+function setupDailyDungeonSchedule() {
+    const now = new Date();
+    const midnight = new Date();
+    
+    // 다음 자정 시간 설정 (오늘 자정이 지났으면 내일 자정)
+    midnight.setHours(24, 0, 0, 0);
+    
+    const timeUntilMidnight = midnight - now;
+    
+    setTimeout(() => {
+        sendDailyDungeonMessage();
+        // 24시간마다 반복
+        setInterval(sendDailyDungeonMessage, 24 * 60 * 60 * 1000);
+    }, timeUntilMidnight);
+    
+    console.log(`[${getKoreanTime()}] ⏰ 오늘의 던전 스케줄러 설정 완료 (${midnight.toLocaleString('ko-KR')} 실행 예정)`);
+}
