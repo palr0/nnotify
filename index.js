@@ -1632,21 +1632,20 @@ async function sendDailyDungeonMessage() {
     }
 }
 
-// 매일 자정에 실행되도록 스케줄 설정
+// 던전 스케줄러 보완
 function setupDailyDungeonSchedule() {
+  try {
     const now = new Date();
-    const midnight = new Date();
-    
-    // 다음 자정 시간 설정 (오늘 자정이 지났으면 내일 자정)
+    const midnight = new Date(now);
     midnight.setHours(24, 0, 0, 0);
     
-    const timeUntilMidnight = midnight - now;
+    setTimeout(async () => {
+      await sendDailyDungeonMessage();
+      setInterval(sendDailyDungeonMessage, 24 * 60 * 60 * 1000);
+    }, midnight - now);
     
-    setTimeout(() => {
-        sendDailyDungeonMessage();
-        // 24시간마다 반복
-        setInterval(sendDailyDungeonMessage, 24 * 60 * 60 * 1000);
-    }, timeUntilMidnight);
-    
-    console.log(`[${getKoreanTime()}] ⏰ 오늘의 던전 스케줄러 설정 완료 (${midnight.toLocaleString('ko-KR')} 실행 예정)`);
+    console.log(`[${getKoreanTime()}] ⏰ 던전 알림 스케줄 설정 완료`);
+  } catch (err) {
+    console.error(`[${getKoreanTime()}] ❌ 던전 스케줄 설정 실패:`, err);
+  }
 }
