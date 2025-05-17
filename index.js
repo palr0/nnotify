@@ -1588,7 +1588,7 @@ function getTodayDungeon() {
     return dungeons;
 }
 
-// 오늘의 던전 메시지 생성 함수
+
 // 오늘의 던전 메시지 생성 함수 (수정된 버전)
 async function sendDailyDungeonMessage() {
     const dungeons = getTodayDungeon();
@@ -1622,7 +1622,7 @@ async function sendDailyDungeonMessage() {
                         botMessages.map(msg => 
                             msg.delete()
                                 .catch(e => console.error(`[${getKoreanTime()}] ❌ 메시지 삭제 실패 (${msg.id}): ${e.message}`))
-                    );
+                    ));
                 }
             } catch (fetchErr) {
                 console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 메시지 불러오기 실패:`, fetchErr.message);
