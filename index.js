@@ -1527,6 +1527,7 @@ function getTodayDungeon() {
 }
 
 // 오늘의 던전 메시지 생성 함수
+// 오늘의 던전 메시지 생성 함수 (수정된 버전)
 async function sendDailyDungeonMessage() {
     const dungeons = getTodayDungeon();
     
@@ -1543,30 +1544,46 @@ async function sendDailyDungeonMessage() {
                 c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages)
             );
             
-            if (!dungeonChannel) continue;
+            if (!dungeonChannel) {
+                console.log(`[${getKoreanTime()}] ⚠️ ${guild.name} 서버에 던전 채널을 찾을 수 없습니다.`);
+                continue;
+            }
             
-            // 기존 봇 메시지 삭제
-            const messages = await dungeonChannel.messages.fetch({ limit: 10 });
-            await Promise.all(
-                messages.filter(m => m.author.bot)
-                    .map(msg => msg.delete().catch(console.error))
-            );
+            // 기존 봇 메시지 삭제 (더 강력한 버전)
+            try {
+                const messages = await dungeonChannel.messages.fetch({ limit: 50 });
+                const botMessages = messages.filter(m => m.author.bot);
+                
+                if (botMessages.size > 0) {
+                    console.log(`[${getKoreanTime()}] 🗑️ ${guild.name} 서버에서 기존 던전 메시지 ${botMessages.size}개 삭제 시도`);
+                    await Promise.all(
+                        botMessages.map(msg => 
+                            msg.delete()
+                                .catch(e => console.error(`[${getKoreanTime()}] ❌ 메시지 삭제 실패 (${msg.id}): ${e.message}`))
+                    );
+                }
+            } catch (fetchErr) {
+                console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 메시지 불러오기 실패:`, fetchErr.message);
+            }
             
             // 던전별로 개별 메시지 전송
             for (const dungeon of dungeons) {
-                const embed = new EmbedBuilder()
-                    .setColor(0xFFD700)
-                    .setTitle(`🏰 ${dungeon.title}`)
-                    .setDescription(dungeon.description)
-                    .setImage(dungeon.image)
-                    .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
-                
-                await dungeonChannel.send({ embeds: [embed] });
+                try {
+                    const embed = new EmbedBuilder()
+                        .setColor(0xFFD700)
+                        .setTitle(`🏰 ${dungeon.title}`)
+                        .setDescription(dungeon.description)
+                        .setImage(dungeon.image)
+                        .setFooter({ text: `갱신 시간: ${getKoreanTime()}` });
+                    
+                    await dungeonChannel.send({ embeds: [embed] });
+                    console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 ${dungeon.title} 던전 메시지 전송 완료`);
+                } catch (sendErr) {
+                    console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 ${dungeon.title} 던전 메시지 전송 실패:`, sendErr.message);
+                }
             }
-            
-            console.log(`[${getKoreanTime()}] ✅ ${guild.name} 서버에 오늘의 던전 메시지 전송 완료`);
-        } catch (err) {
-            console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 던전 메시지 전송 실패:`, err.message);
+        } catch (guildErr) {
+            console.error(`[${getKoreanTime()}] ❌ ${guild.name} 서버 처리 중 오류 발생:`, guildErr.message);
         }
     }
 }
