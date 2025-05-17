@@ -4,7 +4,7 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import './server.js';
 import { ActivityType } from 'discord.js';
-
+import { createHash } from 'crypto';
 
 
 // 환경 변수 로드
@@ -819,10 +819,9 @@ const client = new Client({
 
 // 명령어 해시 생성 함수
 async function generateCommandsHash(commands) {
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256');
-    commands.forEach(cmd => hash.update(JSON.stringify(cmd.toJSON())));
-    return hash.digest('hex');
+  const hash = createHash('sha256');
+  commands.forEach(cmd => hash.update(JSON.stringify(cmd.toJSON())));
+  return hash.digest('hex');
 }
 
 // JSONBin에서 명령어 해시 가져오기
@@ -1027,36 +1026,20 @@ async function registerCommandsIfChanged() {
         ];
 
         // 현재 명령어 해시 생성
-        const currentHash = await generateCommandsHash(commands);
-        const savedHash = await getSavedCommandsHash();
-
-        // 해시 비교
-        if (currentHash === savedHash) {
-            console.log(`[${getKoreanTime()}] ℹ️ 명령어 변경 사항 없음 - 재등록 건너뜀`);
-            return;
-        }
-
-        console.log(`[${getKoreanTime()}] 🔄 명령어 변경 감지 - 새 해시: ${currentHash}, 이전 해시: ${savedHash || '없음'}`);
-
-        // 명령어 전체 삭제 후 재등록
-        console.log(`[${getKoreanTime()}] 🔄 슬래시 커맨드 재등록 시작...`);
-        const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-        
-        // 기존 명령어 삭제
-        await rest.put(Routes.applicationCommands(client.user.id), { body: [] });
-        
-        // 새 명령어 등록
-        await rest.put(
-            Routes.applicationCommands(client.user.id),
-            { body: commands.map(command => command.toJSON()) }
-        );
-        
-        // 새 해시 저장
-        await saveCommandsHash(currentHash);
-        console.log(`[${getKoreanTime()}] ✅ 슬래시 커맨드 재등록 완료 (새 해시: ${currentHash})`);
-    } catch (error) {
-        console.error(`[${getKoreanTime()}] ❌ 슬래시 커맨드 등록 실패:`, error);
+        // 해시 비교 로직
+    const currentHash = await generateCommandsHash(commands);
+    const savedHash = await getSavedCommandsHash();
+    
+    if (currentHash !== savedHash) {
+      const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+      await rest.put(Routes.applicationCommands(client.user.id), { 
+        body: commands.map(c => c.toJSON()) 
+      });
+      await saveCommandsHash(currentHash);
     }
+  } catch (error) {
+    console.error(`[${getKoreanTime()}] ❌ 명령어 등록 실패:`, error);
+  }
 }
 
 
@@ -1339,7 +1322,7 @@ client.once('ready', async () => {
     console.log(`[${getKoreanTime()}] 🟢 봇 시작 - ${new Date().toISOString()}`);
     
     try {
-        await registerCommandsIfChanged();
+
         
         // 주간 초기화 설정
         setupWeeklyReset();
@@ -1351,8 +1334,7 @@ client.once('ready', async () => {
         updateIntervals.clear();
 
         // 슬래시 커맨드 등록
-        await registerCommands();
-
+        await registerCommandsIfChanged();
         for (const [guildId, guild] of client.guilds.cache) {
             try {
             
