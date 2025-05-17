@@ -499,10 +499,11 @@ async function handlePartyCommand(interaction) {
 // 파티 목록 업데이트
 // 파티 목록 업데이트 (수정된 버전)
 async function updatePartyMessages(channel, guildId) {
+    try {
     const guildParties = partyData.get(guildId) || {};
-    const messages = (await channel.messages.fetch({ limit: 50 }))
-        .filter(m => m.author.bot && !m.content.includes('클리어명단'))
-        .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    const messages = (await channel.messages.fetch({ limit: 50 }).catch(console.error))
+      .filter(m => m.author.bot && !m.content.includes('클리어명단'))
+      .sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
     // 기존 메시지 맵 생성 (제목으로 매핑)
     const existingMessages = new Map();
@@ -552,17 +553,22 @@ async function updatePartyMessages(channel, guildId) {
     }
 
     // 사용되지 않은 메시지 정리 (내용을 비움)
-    for (const msgId of unusedMessages) {
-        try {
-            const msg = await channel.messages.fetch(msgId);
-            if (msg.content.trim() !== "") {
-                await msg.delete().catch(console.error);  // 다른 메시지는 내용을 비움
-                console.log(`[${getKoreanTime()}] 🧹 사용되지 않은 메시지 정리: ${msgId}`);
-            }
-        } catch (err) {
-            console.error(`[${getKoreanTime()}] ❌ 메시지 정리 실패:`, err.message);
+    for (const msg of messages.values()) {
+      try {
+        if (!usedMessages.has(msg.id) && msg.deletable) {
+          await msg.delete().catch(e => 
+            console.error(`[${getKoreanTime()}] ❌ 메시지 삭제 실패: ${e.message}`)
+          );
         }
+      } catch (err) {
+        console.error(`[${getKoreanTime()}] ❌ 메시지 처리 오류:`, err.message);
+      }
     }
+
+  } catch (err) {
+    console.error(`[${getKoreanTime()}] ❌ 파티 메시지 업데이트 실패:`, err.message);
+  }
+
 
     // 데이터 저장
     await savePartyData(guildId);
