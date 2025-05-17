@@ -556,7 +556,7 @@ async function updatePartyMessages(channel, guildId) {
         try {
             const msg = await channel.messages.fetch(msgId);
             if (msg.content.trim() !== "") {
-                await msg.edit("");  // 다른 메시지는 내용을 비움
+                await msg.delete().catch(console.error);  // 다른 메시지는 내용을 비움
                 console.log(`[${getKoreanTime()}] 🧹 사용되지 않은 메시지 정리: ${msgId}`);
             }
         } catch (err) {
